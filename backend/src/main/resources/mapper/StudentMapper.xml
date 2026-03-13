@@ -4,11 +4,15 @@
     <resultMap id="BaseResultMap" type="com.sdm.backend.entity.Student">
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
+        <result column="username" property="username"/>
+        <result column="real_name" property="realName"/>
         <result column="student_number" property="studentNumber"/>
         <result column="class_name" property="className"/>
         <result column="major" property="major"/>
         <result column="counselor_id" property="counselorId"/>
+        <result column="counselor_name" property="counselorName"/>
         <result column="enrollment_date" property="enrollmentDate"/>
+        <result column="housing_status" property="housingStatus"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.sdm.backend.entity.Student" useGeneratedKeys="true" keyProperty="id">
@@ -45,5 +49,91 @@
         FROM student s
         LEFT JOIN user u ON s.user_id = u.id
         ORDER BY s.student_number
+    </select>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT 
+            s.*,
+            u.real_name,
+            u2.real_name as counselor_name,
+            CASE 
+                WHEN a.status = 'ACTIVE' THEN 'ACTIVE'
+                ELSE 'NONE'
+            END as housing_status
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user u2 ON s.counselor_id = u2.id
+        LEFT JOIN assignment a ON s.id = a.student_id AND a.status = 'ACTIVE'
+        ORDER BY s.student_number
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="findByPageAndFilters" resultMap="BaseResultMap">
+        SELECT 
+            s.*,
+            u.real_name,
+            u2.real_name as counselor_name,
+            CASE 
+                WHEN a.status = 'ACTIVE' THEN 'ACTIVE'
+                ELSE 'NONE'
+            END as housing_status
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user u2 ON s.counselor_id = u2.id
+        LEFT JOIN assignment a ON s.id = a.student_id AND a.status = 'ACTIVE'
+        <where>
+            <if test="className != null and className != ''">
+                AND s.class_name LIKE CONCAT('%', #{className}, '%')
+            </if>
+            <if test="major != null and major != ''">
+                AND s.major LIKE CONCAT('%', #{major}, '%')
+            </if>
+            <if test="counselorId != null">
+                AND s.counselor_id = #{counselorId}
+            </if>
+        </where>
+        ORDER BY s.student_number
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM student
+    </select>
+
+    <select id="countByFilters" resultType="int">
+        SELECT COUNT(*) FROM student s
+        <where>
+            <if test="className != null and className != ''">
+                AND s.class_name LIKE CONCAT('%', #{className}, '%')
+            </if>
+            <if test="major != null and major != ''">
+                AND s.major LIKE CONCAT('%', #{major}, '%')
+            </if>
+            <if test="counselorId != null">
+                AND s.counselor_id = #{counselorId}
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT 
+            s.*,
+            u.real_name,
+            u2.real_name as counselor_name,
+            CASE 
+                WHEN a.status = 'ACTIVE' THEN 'ACTIVE'
+                ELSE 'NONE'
+            END as housing_status
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user u2 ON s.counselor_id = u2.id
+        LEFT JOIN assignment a ON s.id = a.student_id AND a.status = 'ACTIVE'
+        WHERE s.id = #{id}
+    </select>
+
+    <select id="findByStudentNumberExclude" resultMap="BaseResultMap">
+        SELECT * FROM student 
+        WHERE student_number = #{studentNumber} 
+        AND user_id != #{excludeUserId}
     </select>
 </mapper>

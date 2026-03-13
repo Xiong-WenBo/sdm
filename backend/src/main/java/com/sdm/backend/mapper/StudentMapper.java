@@ -19,4 +19,23 @@ public interface StudentMapper {
     int deleteByUserId(@Param("userId") Long userId);
     
     List<Student> findAll();
+    
+    List<Student> findByPage(@Param("offset") int offset, @Param("limit") int limit);
+    
+    List<Student> findByPageAndFilters(@Param("offset") int offset,
+                                       @Param("limit") int limit,
+                                       @Param("className") String className,
+                                       @Param("major") String major,
+                                       @Param("counselorId") Long counselorId);
+    
+    int countAll();
+    
+    int countByFilters(@Param("className") String className,
+                      @Param("major") String major,
+                      @Param("counselorId") Long counselorId);
+    
+    Student findById(@Param("id") Long id);
+    
+    Student findByStudentNumberExclude(@Param("studentNumber") String studentNumber,
+                                       @Param("excludeUserId") Long excludeUserId);
 }
