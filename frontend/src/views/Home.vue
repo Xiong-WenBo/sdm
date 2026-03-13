@@ -8,23 +8,170 @@
             </template>
             <div class="welcome-content">
                 <el-row :gutter="20">
-                    <el-col :span="12">
-                        <el-descriptions title="用户信息" :column="1" border>
-                            <el-descriptions-item label="用户名">{{ username }}</el-descriptions-item>
-                            <el-descriptions-item label="姓名">{{ realName }}</el-descriptions-item>
-                            <el-descriptions-item label="角色">
-                                <el-tag :type="getRoleType(role)">{{ getRoleName(role) }}</el-tag>
-                            </el-descriptions-item>
-                        </el-descriptions>
-                    </el-col>
-                    <el-col :span="12">
-                        <div class="quick-actions">
-                            <h3>快捷操作</h3>
-                            <el-space direction="vertical">
-                                <el-button type="primary" @click="testAuth">测试认证接口</el-button>
-                            </el-space>
+                    <el-col :span="24">
+                        <div class="welcome-text">
+                            <h2>👋 你好，{{ realName }}！</h2>
+                            <p class="welcome-desc">
+                                欢迎使用宿舍管理系统，{{ getRoleName(role) }}。
+                                您可以通过左侧菜单访问相应的功能模块。
+                            </p>
                         </div>
                     </el-col>
+                </el-row>
+
+                <!-- 角色专属快捷入口 -->
+                <el-row :gutter="20" style="margin-top: 30px">
+                    <el-col :span="24">
+                        <h3 class="section-title">快捷入口</h3>
+                    </el-col>
+                    
+                    <!-- 超级管理员快捷入口 -->
+                    <template v-if="role === 'SUPER_ADMIN'">
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/user')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><User /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>用户管理</h4>
+                                    <p>管理系统用户</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/building')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><OfficeBuilding /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>楼栋管理</h4>
+                                    <p>管理宿舍楼栋</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/student')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Avatar /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>学生管理</h4>
+                                    <p>管理学生信息</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                    </template>
+
+                    <!-- 宿管快捷入口 -->
+                    <template v-if="role === 'DORM_ADMIN'">
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/room')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Grid /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>房间管理</h4>
+                                    <p>管理本楼栋房间</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/attendance')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Document /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>查寝管理</h4>
+                                    <p>录入查寝记录</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/repair')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Tools /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>报修管理</h4>
+                                    <p>处理报修申请</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                    </template>
+
+                    <!-- 辅导员快捷入口 -->
+                    <template v-if="role === 'COUNSELOR'">
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/student')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Avatar /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>学生管理</h4>
+                                    <p>管理班级学生</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/attendance')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Document /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>查寝管理</h4>
+                                    <p>查看学生查寝</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/leave')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Calendar /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>请假管理</h4>
+                                    <p>审批学生请假</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                    </template>
+
+                    <!-- 学生快捷入口 -->
+                    <template v-if="role === 'STUDENT'">
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/repair')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Tools /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>报修管理</h4>
+                                    <p>提交报修申请</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/leave')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><Calendar /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>请假管理</h4>
+                                    <p>提交请假申请</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                        <el-col :span="8">
+                            <el-card shadow="hover" class="quick-card" @click="navigateTo('/profile')">
+                                <div class="quick-icon">
+                                    <el-icon :size="40"><User /></el-icon>
+                                </div>
+                                <div class="quick-info">
+                                    <h4>个人中心</h4>
+                                    <p>查看个人信息</p>
+                                </div>
+                            </el-card>
+                        </el-col>
+                    </template>
                 </el-row>
             </div>
         </el-card>
@@ -32,9 +179,11 @@
 </template>
 
 <script setup>
+import { useRouter } from 'vue-router'
 import { Role, RoleName } from '@/utils/constants'
-import axios from '@/utils/axios'
-import { ElMessage } from 'element-plus'
+import { User, OfficeBuilding, Avatar, Grid, Document, Tools, Calendar } from '@element-plus/icons-vue'
+
+const router = useRouter()
 
 const username = localStorage.getItem('username')
 const realName = localStorage.getItem('realName')
@@ -54,13 +203,8 @@ const getRoleType = (roleKey) => {
     return typeMap[roleKey] || 'info'
 }
 
-const testAuth = async () => {
-    try {
-        const res = await axios.get('/api/auth/test')
-        ElMessage.success(res.data)
-    } catch (error) {
-        // 错误已在 axios 拦截器中处理
-    }
+const navigateTo = (path) => {
+    router.push(path)
 }
 </script>
 
@@ -79,11 +223,63 @@ const testAuth = async () => {
     align-items: center;
 }
 
-.welcome-content {
-    padding: 10px 0;
+.welcome-text {
+    padding: 20px 0;
 }
 
-.quick-actions h3 {
-    margin-bottom: 16px;
+.welcome-text h2 {
+    margin: 0 0 10px 0;
+    color: #303133;
+}
+
+.welcome-desc {
+    margin: 0;
+    color: #606266;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.section-title {
+    margin: 0 0 20px 0;
+    color: #303133;
+    font-size: 16px;
+}
+
+.quick-card {
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+}
+
+.quick-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.quick-card .quick-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    color: #fff;
+    margin-bottom: 15px;
+}
+
+.quick-card .quick-info {
+    text-align: center;
+}
+
+.quick-card .quick-info h4 {
+    margin: 0 0 8px 0;
+    color: #303133;
+    font-size: 16px;
+}
+
+.quick-card .quick-info p {
+    margin: 0;
+    color: #909399;
+    font-size: 13px;
 }
 </style>

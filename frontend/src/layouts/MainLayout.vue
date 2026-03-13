@@ -56,7 +56,7 @@
                                 </div>
                                 <template #dropdown>
                                     <el-dropdown-menu>
-                                        <el-dropdown-item>
+                                        <el-dropdown-item @click="goToProfile">
                                             <el-icon><User /></el-icon>
                                             个人中心
                                         </el-dropdown-item>
@@ -141,6 +141,10 @@ const toggleCollapse = () => {
 const handleLogout = () => {
     localStorage.clear()
     router.push('/login')
+}
+
+const goToProfile = () => {
+    router.push('/profile')
 }
 
 onMounted(() => {

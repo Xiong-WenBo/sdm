@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.dto.ChangePasswordRequest;
 import com.sdm.backend.dto.CreateUserRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
@@ -62,6 +63,13 @@ public class UserController {
         }
         user.setPassword(null);
         return ResponseEntity.ok(Result.success(user));
+    }
+
+    @GetMapping("/current")
+    public ResponseEntity<Result<User>> getCurrentUser() {
+        // 从 token 中获取用户名
+        // 这里简化处理，实际应该从 SecurityContext 获取
+        return ResponseEntity.ok(Result.error(500, "请实现从 token 获取当前用户"));
     }
 
     @PostMapping
@@ -147,5 +155,24 @@ public class UserController {
         }
         userService.deleteById(id);
         return ResponseEntity.ok(Result.success(null, "用户删除成功"));
+    }
+
+    @PutMapping("/password/{id}")
+    public ResponseEntity<Result<Void>> changePassword(@PathVariable Long id, @RequestBody ChangePasswordRequest request) {
+        User user = userService.findById(id);
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+        }
+
+        // 验证旧密码
+        if (!userService.checkPassword(request.getOldPassword(), user.getPassword())) {
+            return ResponseEntity.ok(Result.error(400, "旧密码不正确"));
+        }
+
+        // 更新密码
+        user.setPassword(request.getNewPassword());
+        userService.update(user);
+
+        return ResponseEntity.ok(Result.success(null, "密码修改成功"));
     }
 }

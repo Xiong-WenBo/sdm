@@ -26,6 +26,16 @@ const routes = [
                 }
             },
             {
+                path: 'profile',
+                name: 'Profile',
+                component: () => import('../views/profile/index.vue'),
+                meta: { 
+                    title: '个人中心',
+                    icon: 'User',
+                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR, Role.STUDENT]
+                }
+            },
+            {
                 path: 'user',
                 name: 'User',
                 component: () => import('../views/user/index.vue'),
