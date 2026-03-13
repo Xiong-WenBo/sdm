@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.RoomMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.Room">
+        <id column="id" property="id"/>
+        <result column="building_id" property="buildingId"/>
+        <result column="building_name" property="buildingName"/>
+        <result column="room_number" property="roomNumber"/>
+        <result column="floor" property="floor"/>
+        <result column="capacity" property="capacity"/>
+        <result column="current_occupancy" property="currentOccupancy"/>
+        <result column="gender" property="gender"/>
+        <result column="status" property="status"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT r.*, b.name as building_name
+        FROM room r
+        LEFT JOIN building b ON r.building_id = b.id
+        ORDER BY r.building_id, r.room_number
+    </select>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT r.*, b.name as building_name
+        FROM room r
+        LEFT JOIN building b ON r.building_id = b.id
+        ORDER BY r.building_id, r.room_number
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="findByPageAndFilters" resultMap="BaseResultMap">
+        SELECT r.*, b.name as building_name
+        FROM room r
+        LEFT JOIN building b ON r.building_id = b.id
+        <where>
+            <if test="buildingId != null">
+                AND r.building_id = #{buildingId}
+            </if>
+            <if test="status != null and status != ''">
+                AND r.status = #{status}
+            </if>
+        </where>
+        ORDER BY r.building_id, r.room_number
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM room
+    </select>
+
+    <select id="countByFilters" resultType="int">
+        SELECT COUNT(*) FROM room
+        <where>
+            <if test="buildingId != null">
+                AND building_id = #{buildingId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT r.*, b.name as building_name
+        FROM room r
+        LEFT JOIN building b ON r.building_id = b.id
+        WHERE r.id = #{id}
+    </select>
+
+    <select id="findByBuildingId" resultMap="BaseResultMap">
+        SELECT * FROM room WHERE building_id = #{buildingId}
+        ORDER BY room_number
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.Room" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO room (building_id, room_number, floor, capacity, current_occupancy, gender, status)
+        VALUES (#{buildingId}, #{roomNumber}, #{floor}, #{capacity}, #{currentOccupancy}, #{gender}, #{status})
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.Room">
+        UPDATE room
+        <set>
+            <if test="buildingId != null">building_id = #{buildingId},</if>
+            <if test="roomNumber != null">room_number = #{roomNumber},</if>
+            <if test="floor != null">floor = #{floor},</if>
+            <if test="capacity != null">capacity = #{capacity},</if>
+            <if test="currentOccupancy != null">current_occupancy = #{currentOccupancy},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateCurrentOccupancy">
+        UPDATE room SET current_occupancy = #{count} WHERE id = #{roomId}
+    </update>
+
+    <update id="incrementOccupancy">
+        UPDATE room SET current_occupancy = current_occupancy + 1 WHERE id = #{roomId}
+    </update>
+
+    <update id="decrementOccupancy">
+        UPDATE room SET current_occupancy = current_occupancy - 1 WHERE id = #{roomId} AND current_occupancy > 0
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM room WHERE id = #{id}
+    </delete>
+</mapper>

@@ -58,4 +58,11 @@ public class BuildingService {
     public List<Building> findAvailableAdmins() {
         return buildingMapper.findAvailableAdmins();
     }
+
+    /**
+     * 根据管理员 ID 获取其管理的楼栋
+     */
+    public Building findByAdminUserId(Long adminUserId) {
+        return buildingMapper.findByAdminId(adminUserId);
+    }
 }
