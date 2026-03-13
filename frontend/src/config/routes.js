@@ -42,7 +42,7 @@ const routes = [
                 meta: { 
                     title: '楼栋管理',
                     icon: 'OfficeBuilding',
-                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN]
+                    roles: [Role.SUPER_ADMIN]
                 }
             },
             {
@@ -72,7 +72,7 @@ const routes = [
                 meta: { 
                     title: '宿舍分配',
                     icon: 'Ticket',
-                    roles: [Role.SUPER_ADMIN]
+                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN]
                 }
             },
             {
@@ -82,7 +82,7 @@ const routes = [
                 meta: { 
                     title: '查寝管理',
                     icon: 'Document',
-                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN]
+                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR]
                 }
             },
             {
@@ -102,7 +102,7 @@ const routes = [
                 meta: { 
                     title: '请假管理',
                     icon: 'Calendar',
-                    roles: [Role.SUPER_ADMIN, Role.COUNSELOR, Role.STUDENT]
+                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR, Role.STUDENT]
                 }
             }
         ]
