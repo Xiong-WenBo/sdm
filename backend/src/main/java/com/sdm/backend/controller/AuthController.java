@@ -31,7 +31,7 @@ public class AuthController {
             return ResponseEntity.ok(Result.error(401, "用户名或密码错误"));
         }
         String token = jwtUtil.generateToken(user.getUsername());
-        LoginResponse response = new LoginResponse(token, user.getUsername(), user.getRealName(), user.getRole());
+        LoginResponse response = new LoginResponse(user.getId(), token, user.getUsername(), user.getRealName(), user.getRole());
         return ResponseEntity.ok(Result.success(response, "登录成功"));
     }
 

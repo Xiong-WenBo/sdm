@@ -18,7 +18,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
-@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class UserController {
 
     @Autowired
@@ -28,6 +27,7 @@ public class UserController {
     private StudentService studentService;
 
     @GetMapping("/list")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Map<String, Object>>> getUserList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -73,6 +73,7 @@ public class UserController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Void>> createUser(@RequestBody CreateUserRequest request) {
         // 基础验证
         if (request.getUsername() == null || request.getUsername().isEmpty()) {
@@ -128,6 +129,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Void>> updateUser(@PathVariable Long id, @RequestBody User user) {
         User existingUser = userService.findById(id);
         if (existingUser == null) {
@@ -148,6 +150,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Void>> deleteUser(@PathVariable Long id) {
         User user = userService.findById(id);
         if (user == null) {
@@ -174,5 +177,25 @@ public class UserController {
         userService.update(user);
 
         return ResponseEntity.ok(Result.success(null, "密码修改成功"));
+    }
+
+    @PutMapping("/profile/{id}")
+    public ResponseEntity<Result<Void>> updateProfile(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
+        User user = userService.findById(id);
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+        }
+
+        // 只更新允许的字段
+        if (updates.containsKey("phone")) {
+            user.setPhone((String) updates.get("phone"));
+        }
+        if (updates.containsKey("email")) {
+            user.setEmail((String) updates.get("email"));
+        }
+
+        userService.update(user);
+
+        return ResponseEntity.ok(Result.success(null, "个人信息更新成功"));
     }
 }

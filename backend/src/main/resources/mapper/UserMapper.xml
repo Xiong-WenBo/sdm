@@ -8,6 +8,8 @@
         <result column="real_name" property="realName"/>
         <result column="role" property="role"/>
         <result column="status" property="status"/>
+        <result column="phone" property="phone"/>
+        <result column="email" property="email"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
@@ -64,8 +66,8 @@
     </select>
 
     <insert id="insert" parameterType="com.sdm.backend.entity.User" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO user (username, password, real_name, role, status, created_at, updated_at)
-        VALUES (#{username}, #{password}, #{realName}, #{role}, #{status}, NOW(), NOW())
+        INSERT INTO user (username, password, real_name, role, status, phone, email, created_at, updated_at)
+        VALUES (#{username}, #{password}, #{realName}, #{role}, #{status}, #{phone}, #{email}, NOW(), NOW())
     </insert>
 
     <update id="update" parameterType="com.sdm.backend.entity.User">
@@ -76,6 +78,8 @@
             <if test="role != null">role = #{role},</if>
             <if test="status != null">status = #{status},</if>
             <if test="password != null">password = #{password},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="email != null">email = #{email},</if>
             updated_at = NOW()
         </set>
         WHERE id = #{id}

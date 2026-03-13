@@ -46,8 +46,9 @@ const handleLogin = () => {
     loading.value = true
     try {
       const response = await axios.post('/api/auth/login', loginForm)
-      const { token, username, realName, role } = response.data
+      const { userId, token, username, realName, role } = response.data
       // 保存用户信息到 localStorage
+      localStorage.setItem('userId', userId)
       localStorage.setItem('token', token)
       localStorage.setItem('username', username)
       localStorage.setItem('realName', realName)

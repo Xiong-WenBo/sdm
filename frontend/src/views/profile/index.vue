@@ -260,7 +260,7 @@ const handleUpdateContact = async () => {
                 updateData.email = contactForm.email
             }
             
-            await axios.put(`/api/user/${userInfo.value.id}`, updateData)
+            await axios.put(`/api/user/profile/${userInfo.value.id}`, updateData)
             ElMessage.success('修改成功')
             showContactDialog.value = false
             loadUserInfo()

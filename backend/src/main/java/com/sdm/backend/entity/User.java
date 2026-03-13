@@ -11,6 +11,8 @@ public class User {
     private String realName;
     private String role;
     private Integer status;
+    private String phone;
+    private String email;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
