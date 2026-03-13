@@ -1,7 +1,10 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.dto.CreateUserRequest;
 import com.sdm.backend.dto.Result;
+import com.sdm.backend.entity.Student;
 import com.sdm.backend.entity.User;
+import com.sdm.backend.service.StudentService;
 import com.sdm.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +22,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private StudentService studentService;
 
     @GetMapping("/list")
     public ResponseEntity<Result<Map<String, Object>>> getUserList(
@@ -59,23 +65,57 @@ public class UserController {
     }
 
     @PostMapping
-    public ResponseEntity<Result<Void>> createUser(@RequestBody User user) {
-        if (user.getUsername() == null || user.getUsername().isEmpty()) {
+    public ResponseEntity<Result<Void>> createUser(@RequestBody CreateUserRequest request) {
+        // 基础验证
+        if (request.getUsername() == null || request.getUsername().isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "用户名不能为空"));
         }
-        if (user.getPassword() == null || user.getPassword().isEmpty()) {
+        if (request.getPassword() == null || request.getPassword().isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "密码不能为空"));
         }
-        if (userService.findByUsername(user.getUsername()) != null) {
+        if (userService.findByUsername(request.getUsername()) != null) {
             return ResponseEntity.ok(Result.error(400, "用户名已存在"));
         }
-        if (user.getRole() == null || user.getRole().isEmpty()) {
+        if (request.getRole() == null || request.getRole().isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "角色不能为空"));
         }
-        if (user.getStatus() == null) {
-            user.setStatus(1);
-        }
+        
+        // 创建用户
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+        user.setRealName(request.getRealName());
+        user.setRole(request.getRole());
+        user.setStatus(request.getStatus() != null ? request.getStatus() : 1);
         userService.insert(user);
+        
+        // 如果是学生，自动创建 student 记录
+        if ("STUDENT".equals(request.getRole())) {
+            // 验证学生必填字段
+            if (request.getStudentNumber() == null || request.getStudentNumber().isEmpty()) {
+                return ResponseEntity.ok(Result.error(400, "学号不能为空"));
+            }
+            if (request.getClassName() == null || request.getClassName().isEmpty()) {
+                return ResponseEntity.ok(Result.error(400, "班级不能为空"));
+            }
+            
+            // 检查学号是否已存在
+            Student existingStudent = studentService.findByStudentNumber(request.getStudentNumber());
+            if (existingStudent != null) {
+                return ResponseEntity.ok(Result.error(400, "学号已存在"));
+            }
+            
+            // 创建学生信息
+            Student student = new Student();
+            student.setUserId(user.getId());
+            student.setStudentNumber(request.getStudentNumber());
+            student.setClassName(request.getClassName());
+            student.setMajor(request.getMajor());
+            student.setCounselorId(request.getCounselorId());
+            student.setEnrollmentDate(request.getEnrollmentDate());
+            studentService.createStudent(student);
+        }
+        
         return ResponseEntity.ok(Result.success(null, "用户创建成功"));
     }
 

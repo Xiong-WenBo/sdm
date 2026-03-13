@@ -120,6 +120,33 @@
                         <el-radio :label="0">禁用</el-radio>
                     </el-radio-group>
                 </el-form-item>
+                
+                <!-- 学生特有字段 -->
+                <template v-if="userForm.role === 'STUDENT' && !isEdit">
+                    <el-divider content-position="left">学生信息</el-divider>
+                    <el-form-item label="学号" prop="studentNumber">
+                        <el-input v-model="userForm.studentNumber" placeholder="请输入学号" />
+                    </el-form-item>
+                    <el-form-item label="班级" prop="className">
+                        <el-input v-model="userForm.className" placeholder="请输入班级（如：计算机 2101 班）" />
+                    </el-form-item>
+                    <el-form-item label="专业" prop="major">
+                        <el-input v-model="userForm.major" placeholder="请输入专业" />
+                    </el-form-item>
+                    <el-form-item label="辅导员" prop="counselorId">
+                        <el-input v-model="userForm.counselorId" placeholder="请输入辅导员 ID（可选）" type="number" />
+                    </el-form-item>
+                    <el-form-item label="入学日期" prop="enrollmentDate">
+                        <el-date-picker
+                            v-model="userForm.enrollmentDate"
+                            type="date"
+                            placeholder="请选择入学日期"
+                            style="width: 100%"
+                            format="YYYY-MM-DD"
+                            value-format="YYYY-MM-DD"
+                        />
+                    </el-form-item>
+                </template>
             </el-form>
             <template #footer>
                 <el-button @click="dialogVisible = false">取消</el-button>
@@ -163,14 +190,20 @@ const userForm = reactive({
     password: '',
     realName: '',
     role: '',
-    status: 1
+    status: 1,
+    // 学生特有字段
+    studentNumber: '',
+    className: '',
+    major: '',
+    counselorId: null,
+    enrollmentDate: ''
 })
 
 // 保存原始用户数据用于对比
 const originalUserData = ref(null)
 
 const userFormRules = computed(() => {
-    return {
+    const rules = {
         username: [
             { required: true, message: '请输入用户名', trigger: 'blur' },
             { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
@@ -186,6 +219,18 @@ const userFormRules = computed(() => {
             { required: true, message: '请选择角色', trigger: 'change' }
         ]
     }
+    
+    // 学生特有字段的验证规则（仅新增时）
+    if (!isEdit.value && userForm.role === 'STUDENT') {
+        rules.studentNumber = [
+            { required: true, message: '请输入学号', trigger: 'blur' }
+        ]
+        rules.className = [
+            { required: true, message: '请输入班级', trigger: 'blur' }
+        ]
+    }
+    
+    return rules
 })
 
 const getRoleName = (role) => {
@@ -332,6 +377,11 @@ const handleDialogClose = () => {
     userForm.realName = ''
     userForm.role = ''
     userForm.status = 1
+    userForm.studentNumber = ''
+    userForm.className = ''
+    userForm.major = ''
+    userForm.counselorId = null
+    userForm.enrollmentDate = ''
     resetPassword.value = false
     originalUserData.value = null
 }
