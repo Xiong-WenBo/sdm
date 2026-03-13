@@ -4,6 +4,8 @@ import com.sdm.backend.entity.Student;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface StudentMapper {
     int insert(Student student);
@@ -15,4 +17,6 @@ public interface StudentMapper {
     int update(Student student);
     
     int deleteByUserId(@Param("userId") Long userId);
+    
+    List<Student> findAll();
 }

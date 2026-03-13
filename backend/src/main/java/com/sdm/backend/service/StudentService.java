@@ -5,6 +5,8 @@ import com.sdm.backend.mapper.StudentMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class StudentService {
 
@@ -29,5 +31,9 @@ public class StudentService {
 
     public int deleteByUserId(Long userId) {
         return studentMapper.deleteByUserId(userId);
+    }
+
+    public List<Student> findAll() {
+        return studentMapper.findAll();
     }
 }

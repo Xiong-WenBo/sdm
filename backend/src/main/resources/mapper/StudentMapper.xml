@@ -39,4 +39,11 @@
     <delete id="deleteByUserId">
         DELETE FROM student WHERE user_id = #{userId}
     </delete>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT s.*, u.real_name
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        ORDER BY s.student_number
+    </select>
 </mapper>

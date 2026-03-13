@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.AssignmentMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.Assignment">
+        <id column="id" property="id"/>
+        <result column="student_id" property="studentId"/>
+        <result column="student_number" property="studentNumber"/>
+        <result column="student_name" property="studentName"/>
+        <result column="room_id" property="roomId"/>
+        <result column="room_number" property="roomNumber"/>
+        <result column="building_name" property="buildingName"/>
+        <result column="bed_number" property="bedNumber"/>
+        <result column="check_in_date" property="checkInDate"/>
+        <result column="check_out_date" property="checkOutDate"/>
+        <result column="status" property="status"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="creator_name" property="creatorName"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as creator_name
+        FROM assignment a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room r ON a.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.created_by = u2.id
+        ORDER BY a.check_in_date DESC
+    </select>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as creator_name
+        FROM assignment a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room r ON a.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.created_by = u2.id
+        ORDER BY a.check_in_date DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="findByPageAndFilters" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as creator_name
+        FROM assignment a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room r ON a.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.created_by = u2.id
+        <where>
+            <if test="studentId != null">
+                AND a.student_id = #{studentId}
+            </if>
+            <if test="roomId != null">
+                AND a.room_id = #{roomId}
+            </if>
+            <if test="buildingId != null">
+                AND r.building_id = #{buildingId}
+            </if>
+            <if test="status != null and status != ''">
+                AND a.status = #{status}
+            </if>
+        </where>
+        ORDER BY a.check_in_date DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM assignment
+    </select>
+
+    <select id="countByFilters" resultType="int">
+        SELECT COUNT(*) FROM assignment a
+        LEFT JOIN room r ON a.room_id = r.id
+        <where>
+            <if test="studentId != null">
+                AND a.student_id = #{studentId}
+            </if>
+            <if test="roomId != null">
+                AND a.room_id = #{roomId}
+            </if>
+            <if test="buildingId != null">
+                AND r.building_id = #{buildingId}
+            </if>
+            <if test="status != null and status != ''">
+                AND a.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as creator_name
+        FROM assignment a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room r ON a.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.created_by = u2.id
+        WHERE a.id = #{id}
+    </select>
+
+    <select id="findByStudentId" resultMap="BaseResultMap">
+        SELECT * FROM assignment WHERE student_id = #{studentId}
+        ORDER BY check_in_date DESC
+    </select>
+
+    <select id="findByRoomId" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name
+        FROM assignment a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        WHERE a.room_id = #{roomId} AND a.status = 'ACTIVE'
+        ORDER BY a.bed_number
+    </select>
+
+    <select id="findByBuildingId" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            r.room_number,
+            b.name as building_name
+        FROM assignment a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room r ON a.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        WHERE r.building_id = #{buildingId} AND a.status = 'ACTIVE'
+        ORDER BY r.room_number, a.bed_number
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.Assignment" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO assignment (student_id, room_id, bed_number, check_in_date, status, created_by)
+        VALUES (#{studentId}, #{roomId}, #{bedNumber}, #{checkInDate}, #{status}, #{createdBy})
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.Assignment">
+        UPDATE assignment
+        <set>
+            <if test="roomId != null">room_id = #{roomId},</if>
+            <if test="bedNumber != null">bed_number = #{bedNumber},</if>
+            <if test="checkOutDate != null">check_out_date = #{checkOutDate},</if>
+            <if test="status != null">status = #{status},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM assignment WHERE id = #{id}
+    </delete>
+</mapper>
