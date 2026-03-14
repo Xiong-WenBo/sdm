@@ -26,7 +26,6 @@ public class StudentController {
     private StudentService studentService;
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Student>> getStudentById(@PathVariable Long id) {
         Student student = studentService.findById(id);
         if (student == null) {
@@ -36,7 +35,6 @@ public class StudentController {
     }
 
     @GetMapping("/list")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Map<String, Object>>> getStudentList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -65,7 +63,7 @@ public class StudentController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Void>> createStudent(@RequestBody Student student) {
         // 验证学号是否重复
         Student existing = studentService.findByStudentNumber(student.getStudentNumber());
@@ -73,17 +71,14 @@ public class StudentController {
             return ResponseEntity.ok(Result.error(400, "学号已存在"));
         }
 
-        // 设置默认密码为学号后六位
-        String password = student.getStudentNumber().length() >= 6 
-            ? student.getStudentNumber().substring(student.getStudentNumber().length() - 6)
-            : student.getStudentNumber();
+        // 设置默认密码为 123123
+        String password = "123123";
 
         studentService.createStudentUser(student, password);
-        return ResponseEntity.ok(Result.success(null, "学生创建成功，默认密码为学号后六位"));
+        return ResponseEntity.ok(Result.success(null, "学生创建成功，默认密码为 123123"));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Void>> updateStudent(@PathVariable Long id, @RequestBody Student student) {
         Student existing = studentService.findById(id);
         if (existing == null) {
@@ -103,7 +98,6 @@ public class StudentController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Void>> deleteStudent(@PathVariable Long id) {
         Student student = studentService.findById(id);
         if (student == null) {
@@ -117,7 +111,7 @@ public class StudentController {
      * Excel 批量导入学生
      */
     @PostMapping("/import")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Map<String, Object>>> importStudents(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "请选择文件"));
@@ -193,10 +187,8 @@ public class StudentController {
                         continue;
                     }
 
-                    // 设置默认密码为学号后六位
-                    String password = student.getStudentNumber().length() >= 6 
-                        ? student.getStudentNumber().substring(student.getStudentNumber().length() - 6)
-                        : student.getStudentNumber();
+                    // 设置默认密码为 123123
+                    String password = "123123";
 
                     studentService.createStudentUser(student, password);
                     successCount++;
