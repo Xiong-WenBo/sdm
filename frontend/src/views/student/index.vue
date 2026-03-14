@@ -358,18 +358,29 @@ const handleDialogClose = () => {
 const handleDownloadTemplate = async () => {
     try {
         const response = await axios.get('/api/student/template', {
-            responseType: 'blob'
+            responseType: 'blob',
+            // 跳过响应拦截器的 JSON 解析
+            transformResponse: [(data) => data]
         })
-        const url = window.URL.createObjectURL(new Blob([response.data]))
+        
+        // 检查响应是否为 blob 类型
+        if (!(response.data instanceof Blob)) {
+            ElMessage.error('下载失败：响应数据格式错误')
+            return
+        }
+        
+        const url = window.URL.createObjectURL(response.data)
         const link = document.createElement('a')
         link.href = url
         link.setAttribute('download', '学生导入模板.xlsx')
         document.body.appendChild(link)
         link.click()
         link.remove()
+        window.URL.revokeObjectURL(url)
         ElMessage.success('模板下载成功')
     } catch (error) {
         console.error('下载模板失败:', error)
+        // 错误已经在拦截器中显示
     }
 }
 
@@ -397,21 +408,16 @@ const handleImportSubmit = async () => {
             }
         })
         
-        if (res.data.code === 200) {
-            ElMessage.success(res.data.message || '导入成功')
+        if (res.code === 200) {
+            ElMessage.success(res.message || '导入成功')
             importDialogVisible.value = false
             loadStudentList()
         } else {
-            ElMessage.error(res.data.message || '导入失败')
+            ElMessage.error(res.message || '导入失败')
         }
     } catch (error) {
         console.error('导入失败:', error)
-        if (error.response && error.response.data) {
-            const errors = error.response.data.data?.errors || []
-            if (errors.length > 0) {
-                ElMessage.error('部分导入失败：' + errors.join('; '))
-            }
-        }
+        // 错误已经在拦截器中处理
     } finally {
         importing.value = false
     }

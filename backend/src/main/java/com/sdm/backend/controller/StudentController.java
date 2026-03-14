@@ -298,14 +298,20 @@ public class StudentController {
                 workbook.write(outputStream);
                 byte[] bytes = outputStream.toByteArray();
                 
-                Map<String, String> headers_map = new HashMap<>();
-                headers_map.put("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-                headers_map.put("Content-Disposition", "attachment; filename=\"学生导入模板.xlsx\"");
+                // 对文件名进行 URL 编码，防止中文乱码
+                String encodedFileName = java.net.URLEncoder.encode("学生导入模板.xlsx", "UTF-8").replace("+", "%20");
+                
+                org.springframework.http.HttpHeaders headers_map = new org.springframework.http.HttpHeaders();
+                headers_map.setContentType(org.springframework.http.MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+                headers_map.setContentDisposition(
+                    org.springframework.http.ContentDisposition
+                        .attachment()
+                        .filename(encodedFileName)
+                        .build());
                 
                 return ResponseEntity.ok()
-                    .headers(new org.springframework.http.HttpHeaders() {{
-                        headers_map.forEach(this::set);
-                    }})
+                    .headers(headers_map)
                     .body(bytes);
             }
         } catch (IOException e) {

@@ -29,6 +29,11 @@ instance.interceptors.request.use(
 // 响应拦截器
 instance.interceptors.response.use(
     response => {
+        // 如果是 blob 类型（文件下载），直接返回
+        if (response.config.responseType === 'blob') {
+            return response
+        }
+        
         const res = response.data
         
         // 如果响应码不是 200，说明业务层面有错误
