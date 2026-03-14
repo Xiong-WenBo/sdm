@@ -8,6 +8,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,7 +28,23 @@ public class StudentController {
     private StudentService studentService;
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Student>> getStudentById(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String role = authentication.getAuthorities().stream()
+            .findFirst().get().getAuthority();
+        
+        if ("ROLE_COUNSELOR".equals(role)) {
+            Student student = studentService.findById(id);
+            if (student == null) {
+                return ResponseEntity.ok(Result.error(404, "学生不存在"));
+            }
+            if (!student.getCounselorId().equals(getCurrentUserId())) {
+                return ResponseEntity.ok(Result.error(403, "无权查看非本班学生"));
+            }
+            return ResponseEntity.ok(Result.success(student));
+        }
+        
         Student student = studentService.findById(id);
         if (student == null) {
             return ResponseEntity.ok(Result.error(404, "学生不存在"));
@@ -35,6 +53,7 @@ public class StudentController {
     }
 
     @GetMapping("/list")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Map<String, Object>>> getStudentList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -42,6 +61,14 @@ public class StudentController {
             @RequestParam(required = false) String major,
             @RequestParam(required = false) Long counselorId
     ) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String role = authentication.getAuthorities().stream()
+            .findFirst().get().getAuthority();
+        
+        if ("ROLE_COUNSELOR".equals(role)) {
+            counselorId = getCurrentUserId();
+        }
+        
         List<Student> students;
         int total;
 
@@ -71,6 +98,15 @@ public class StudentController {
             return ResponseEntity.ok(Result.error(400, "学号已存在"));
         }
 
+        // 如果是辅导员，自动设置辅导员 ID 为当前用户
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String role = authentication.getAuthorities().stream()
+            .findFirst().get().getAuthority();
+        
+        if ("ROLE_COUNSELOR".equals(role)) {
+            student.setCounselorId(getCurrentUserId());
+        }
+
         // 设置默认密码为 123123
         String password = "123123";
 
@@ -79,10 +115,21 @@ public class StudentController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Void>> updateStudent(@PathVariable Long id, @RequestBody Student student) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String role = authentication.getAuthorities().stream()
+            .findFirst().get().getAuthority();
+        
         Student existing = studentService.findById(id);
         if (existing == null) {
             return ResponseEntity.ok(Result.error(404, "学生不存在"));
+        }
+        
+        if ("ROLE_COUNSELOR".equals(role)) {
+            if (!existing.getCounselorId().equals(getCurrentUserId())) {
+                return ResponseEntity.ok(Result.error(403, "无权修改非本班学生"));
+            }
         }
 
         // 验证学号是否重复（排除当前学生）
@@ -98,6 +145,7 @@ public class StudentController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Void>> deleteStudent(@PathVariable Long id) {
         Student student = studentService.findById(id);
         if (student == null) {
@@ -111,7 +159,7 @@ public class StudentController {
      * Excel 批量导入学生
      */
     @PostMapping("/import")
-    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Map<String, Object>>> importStudents(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "请选择文件"));
@@ -263,6 +311,17 @@ public class StudentController {
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * 获取当前登录用户 ID
+     */
+    private Long getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        
+        com.sdm.backend.entity.User user = studentService.findUserByUsername(username);
+        return user != null ? user.getId() : null;
     }
 
     /**

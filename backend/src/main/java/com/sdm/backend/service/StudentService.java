@@ -86,9 +86,26 @@ public class StudentService {
     }
 
     /**
-     * 更新学生信息（不修改 user 信息）
+     * 更新学生信息（同时更新 student 表和 user 表的 real_name）
      */
+    @org.springframework.transaction.annotation.Transactional
     public int updateStudentInfo(Student student) {
+        // 1. 更新 user 表的 real_name
+        if (student.getRealName() != null) {
+            com.sdm.backend.entity.User user = new com.sdm.backend.entity.User();
+            user.setId(student.getUserId());
+            user.setRealName(student.getRealName());
+            userService.update(user);
+        }
+        
+        // 2. 更新 student 表的其他字段
         return studentMapper.update(student);
+    }
+
+    /**
+     * 根据用户名查找用户
+     */
+    public com.sdm.backend.entity.User findUserByUsername(String username) {
+        return userService.findByUsername(username);
     }
 }
