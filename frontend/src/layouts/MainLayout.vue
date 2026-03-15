@@ -46,6 +46,11 @@
                         </span>
                     </div>
                     <div class="header-right">
+                        <div class="message-icon" @click="goToMessages">
+                            <el-badge :value="unreadCount" :hidden="unreadCount === 0" type="danger">
+                                <el-icon :size="20"><Bell /></el-icon>
+                            </el-badge>
+                        </div>
                         <div class="user-info">
                             <el-dropdown>
                                 <div class="user-name">
@@ -97,10 +102,12 @@ import {
     Ticket,
     Document,
     Tools,
-    Calendar
+    Calendar,
+    Bell
 } from '@element-plus/icons-vue'
 import { getMenusByRole } from '@/config/menuConfig'
 import { Role, RoleName } from '@/utils/constants'
+import axios from '@/utils/axios'
 
 const route = useRoute()
 const router = useRouter()
@@ -108,6 +115,7 @@ const router = useRouter()
 const isCollapse = ref(false)
 const userName = ref('')
 const userRole = ref('')
+const unreadCount = ref(0)
 
 const activeMenu = computed(() => route.path)
 
@@ -147,9 +155,26 @@ const goToProfile = () => {
     router.push('/profile')
 }
 
+const goToMessages = () => {
+    router.push('/messages')
+}
+
+const loadUnreadCount = async () => {
+    try {
+        const res = await axios.get('/api/message/unread/count')
+        unreadCount.value = res.data
+    } catch (error) {
+        console.error('获取未读消息失败:', error)
+    }
+}
+
 onMounted(() => {
     userName.value = localStorage.getItem('realName') || localStorage.getItem('username') || '用户'
     userRole.value = localStorage.getItem('role') || ''
+    loadUnreadCount()
+    
+    // 监听子组件的消息更新事件
+    window.addEventListener('update-unread-count', loadUnreadCount)
 })
 </script>
 
@@ -228,6 +253,17 @@ onMounted(() => {
 .header-right {
     display: flex;
     align-items: center;
+    gap: 20px;
+}
+
+.message-icon {
+    cursor: pointer;
+    color: #606266;
+    transition: all 0.3s;
+}
+
+.message-icon:hover {
+    color: #409EFF;
 }
 
 .user-info {

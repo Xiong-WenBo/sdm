@@ -96,6 +96,16 @@ const routes = [
                 }
             },
             {
+                path: 'messages',
+                name: 'Messages',
+                component: () => import('../views/message/index.vue'),
+                meta: { 
+                    title: '消息中心',
+                    icon: 'Bell',
+                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR, Role.STUDENT]
+                }
+            },
+            {
                 path: 'repair',
                 name: 'Repair',
                 component: () => import('../views/repair/index.vue'),

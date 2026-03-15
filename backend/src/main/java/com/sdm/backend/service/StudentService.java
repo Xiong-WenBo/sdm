@@ -28,6 +28,24 @@ public class StudentService {
         return studentMapper.findByStudentNumber(studentNumber);
     }
 
+    /**
+     * 根据辅导员 ID 查询学生列表
+     */
+    public List<Student> findByCounselorId(Long counselorId) {
+        // 通过 student 表的 counselor_id 字段查询
+        return studentMapper.findAll().stream()
+            .filter(s -> counselorId.equals(s.getCounselorId()))
+            .toList();
+    }
+
+    /**
+     * 获取学生的用户 ID
+     */
+    public Long getUserIdByStudentId(Long studentId) {
+        Student student = studentMapper.findById(studentId);
+        return student != null ? student.getUserId() : null;
+    }
+
     public int updateStudent(Student student) {
         return studentMapper.update(student);
     }

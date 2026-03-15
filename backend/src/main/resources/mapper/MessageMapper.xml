@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.MessageMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.Message">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="username" property="username"/>
+        <result column="real_name" property="realName"/>
+        <result column="title" property="title"/>
+        <result column="content" property="content"/>
+        <result column="type" property="type"/>
+        <result column="status" property="status"/>
+        <result column="send_time" property="sendTime"/>
+        <result column="read_time" property="readTime"/>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="BaseResultMap">
+        SELECT m.*, u.username, u.real_name
+        FROM message m
+        LEFT JOIN user u ON m.user_id = u.id
+        WHERE m.user_id = #{userId}
+        ORDER BY m.send_time DESC
+    </select>
+
+    <select id="findByUserIdAndStatus" resultMap="BaseResultMap">
+        SELECT m.*, u.username, u.real_name
+        FROM message m
+        LEFT JOIN user u ON m.user_id = u.id
+        WHERE m.user_id = #{userId} AND m.status = #{status}
+        ORDER BY m.send_time DESC
+    </select>
+
+    <select id="countUnread" resultType="int">
+        SELECT COUNT(*) FROM message WHERE user_id = #{userId} AND status = 'UNREAD'
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT m.*, u.username, u.real_name
+        FROM message m
+        LEFT JOIN user u ON m.user_id = u.id
+        WHERE m.id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.Message" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO message (user_id, title, content, type, status, send_time)
+        VALUES (#{userId}, #{title}, #{content}, #{type}, #{status}, #{sendTime})
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.Message">
+        UPDATE message
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="readTime != null">read_time = #{readTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="markAsRead">
+        UPDATE message SET status = 'READ', read_time = NOW() WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM message WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByUserId">
+        DELETE FROM message WHERE user_id = #{userId}
+    </delete>
+</mapper>

@@ -4,10 +4,16 @@
             <template #header>
                 <div class="card-header">
                     <span>查寝管理</span>
-                    <el-button type="primary" @click="handleCheckIn">
-                        <el-icon><Edit /></el-icon>
-                        查寝录入
-                    </el-button>
+                    <div>
+                        <el-button type="danger" @click="handleNotifyAbsent" :loading="notifying">
+                            <el-icon><Bell /></el-icon>
+                            通知未归学生
+                        </el-button>
+                        <el-button type="primary" @click="handleCheckIn">
+                            <el-icon><Edit /></el-icon>
+                            查寝录入
+                        </el-button>
+                    </div>
                 </div>
             </template>
 
@@ -183,11 +189,12 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit } from '@element-plus/icons-vue'
+import { Edit, Bell } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
 
 const loading = ref(false)
 const submitting = ref(false)
+const notifying = ref(false)
 const checkInDialogVisible = ref(false)
 const editDialogVisible = ref(false)
 const editFormRef = ref(null)
@@ -304,6 +311,36 @@ const handleReset = () => {
     searchForm.checkTime = ''
     searchForm.status = ''
     handleSearch()
+}
+
+const handleNotifyAbsent = () => {
+    ElMessageBox.confirm(
+        '确定要查询并通知今日未归学生吗？系统将自动发送站内信给相关人员。',
+        '提示',
+        {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+        }
+    ).then(async () => {
+        notifying.value = true
+        try {
+            const res = await axios.post('/api/notification/absent/today')
+            
+            if (res.code === 200) {
+                ElMessage.success(res.message || '通知发送成功')
+                // 刷新未读消息数量
+                window.dispatchEvent(new CustomEvent('update-unread-count'))
+            } else {
+                ElMessage.error(res.message || '通知发送失败')
+            }
+        } catch (error) {
+            console.error('通知失败:', error)
+            ElMessage.error(error.response?.data?.message || '通知发送失败')
+        } finally {
+            notifying.value = false
+        }
+    }).catch(() => {})
 }
 
 const handleCheckIn = () => {
