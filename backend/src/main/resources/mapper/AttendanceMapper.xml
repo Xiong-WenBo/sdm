@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.AttendanceMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.Attendance">
+        <id column="id" property="id"/>
+        <result column="student_id" property="studentId"/>
+        <result column="student_number" property="studentNumber"/>
+        <result column="student_name" property="studentName"/>
+        <result column="class_name" property="className"/>
+        <result column="room_number" property="roomNumber"/>
+        <result column="building_name" property="buildingName"/>
+        <result column="check_date" property="checkDate"/>
+        <result column="check_time" property="checkTime"/>
+        <result column="status" property="status"/>
+        <result column="remarks" property="remarks"/>
+        <result column="checker_id" property="checkerId"/>
+        <result column="checker_name" property="checkerName"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as checker_name
+        FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.checker_id = u2.id
+        ORDER BY a.check_date DESC, a.check_time DESC
+    </select>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as checker_name
+        FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.checker_id = u2.id
+        ORDER BY a.check_date DESC, a.check_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="findByPageAndFilters" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as checker_name
+        FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.checker_id = u2.id
+        <where>
+            <if test="studentId != null">
+                AND a.student_id = #{studentId}
+            </if>
+            <if test="buildingId != null">
+                AND r.building_id = #{buildingId}
+            </if>
+            <if test="checkDate != null">
+                AND a.check_date = #{checkDate}
+            </if>
+            <if test="checkTime != null and checkTime != ''">
+                AND a.check_time = #{checkTime}
+            </if>
+            <if test="status != null and status != ''">
+                AND a.status = #{status}
+            </if>
+        </where>
+        ORDER BY a.check_date DESC, a.check_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM attendance
+    </select>
+
+    <select id="countByFilters" resultType="int">
+        SELECT COUNT(*) FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        <where>
+            <if test="studentId != null">
+                AND a.student_id = #{studentId}
+            </if>
+            <if test="buildingId != null">
+                AND r.building_id = #{buildingId}
+            </if>
+            <if test="checkDate != null">
+                AND a.check_date = #{checkDate}
+            </if>
+            <if test="checkTime != null and checkTime != ''">
+                AND a.check_time = #{checkTime}
+            </if>
+            <if test="status != null and status != ''">
+                AND a.status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as checker_name
+        FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.checker_id = u2.id
+        WHERE a.id = #{id}
+    </select>
+
+    <select id="findByStudentAndDate" resultMap="BaseResultMap">
+        SELECT * FROM attendance 
+        WHERE student_id = #{studentId} 
+        AND check_date = #{checkDate}
+        AND check_time = #{checkTime}
+    </select>
+
+    <select id="findStudentsInBuilding" resultMap="BaseResultMap">
+        SELECT 
+            s.id as student_id,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        WHERE b.id = #{buildingId}
+        ORDER BY r.room_number, s.student_number
+    </select>
+
+    <select id="findStudentsByCounselor" resultMap="BaseResultMap">
+        SELECT 
+            s.id as student_id,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        WHERE s.counselor_id = #{counselorId}
+        ORDER BY s.class_name, s.student_number
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.Attendance" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO attendance (student_id, check_date, check_time, status, remarks, checker_id)
+        VALUES (#{studentId}, #{checkDate}, #{checkTime}, #{status}, #{remarks}, #{checkerId})
+    </insert>
+
+    <insert id="batchInsert">
+        INSERT INTO attendance (student_id, check_date, check_time, status, remarks, checker_id)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.studentId}, #{item.checkDate}, #{item.checkTime}, #{item.status}, #{item.remarks}, #{item.checkerId})
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        status = VALUES(status),
+        remarks = VALUES(remarks),
+        checker_id = VALUES(checker_id)
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.Attendance">
+        UPDATE attendance
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="remarks != null">remarks = #{remarks},</if>
+            <if test="checkerId != null">checker_id = #{checkerId},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM attendance WHERE id = #{id}
+    </delete>
+</mapper>
