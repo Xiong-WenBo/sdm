@@ -11,6 +11,19 @@ const instance = axios.create({
     }
 })
 
+// 统一错误提示映射
+const ERROR_MESSAGES = {
+    400: '请求参数错误',
+    401: '登录已过期，请重新登录',
+    403: '抱歉，您没有访问权限',
+    404: '请求的资源不存在',
+    405: '不支持的请求方法',
+    500: '服务器内部错误，请稍后重试',
+    502: '网关错误',
+    503: '服务暂时不可用',
+    504: '网关超时'
+}
+
 // 请求拦截器
 instance.interceptors.request.use(
     config => {
@@ -21,6 +34,7 @@ instance.interceptors.request.use(
         return config
     },
     error => {
+        console.error('请求错误:', error)
         ElMessage.error('请求发送失败：' + error.message)
         return Promise.reject(error)
     }
@@ -38,7 +52,9 @@ instance.interceptors.response.use(
         
         // 如果响应码不是 200，说明业务层面有错误
         if (res.code !== 200) {
-            ElMessage.error(res.message || '请求失败')
+            // 统一错误提示
+            const message = res.message || ERROR_MESSAGES[res.code] || '请求失败'
+            ElMessage.error(message)
             
             // 401：未授权，清除 token 并跳转登录页
             if (res.code === 401) {
@@ -46,12 +62,12 @@ instance.interceptors.response.use(
                 router.push('/login')
             }
             
-            // 403：无权限
+            // 403：无权限，跳转到 403 页面（可选）
             if (res.code === 403) {
-                ElMessage.error('无权限访问')
+                // router.push('/403')  // 如果需要跳转 403 页面
             }
             
-            return Promise.reject(new Error(res.message || '请求失败'))
+            return Promise.reject(new Error(message))
         }
         
         return res
@@ -61,30 +77,24 @@ instance.interceptors.response.use(
         let message = '网络错误，请稍后重试'
         
         if (error.response) {
-            switch (error.response.status) {
-                case 401:
-                    message = '未授权，请重新登录'
-                    localStorage.clear()
-                    router.push('/login')
-                    break
-                case 403:
-                    message = '拒绝访问'
-                    break
-                case 404:
-                    message = '请求资源不存在'
-                    break
-                case 500:
-                    message = '服务器内部错误'
-                    break
-                default:
-                    message = error.response.data?.message || `请求失败 (${error.response.status})`
+            // 服务器返回错误响应
+            const status = error.response.status
+            message = error.response.data?.message || ERROR_MESSAGES[status] || `请求失败 (${status})`
+            
+            // 特殊处理 401 和 403
+            if (status === 401) {
+                localStorage.clear()
+                router.push('/login')
             }
         } else if (error.request) {
+            // 请求已发送但没有收到响应
             message = '无法连接到服务器，请检查后端是否启动'
         } else {
+            // 请求配置出错
             message = error.message || '请求配置错误'
         }
         
+        console.error('HTTP 错误:', error)
         ElMessage.error(message)
         return Promise.reject(error)
     }
