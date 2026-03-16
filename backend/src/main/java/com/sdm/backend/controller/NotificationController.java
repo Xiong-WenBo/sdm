@@ -118,7 +118,7 @@ public class NotificationController {
     }
 
     /**
-     * 手动触发查询当日未归学生并发送通知
+     * 手动触发查询当日未归且未请假学生并发送通知
      */
     @PostMapping("/absent/today")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
@@ -139,52 +139,51 @@ public class NotificationController {
         int notifiedDormAdmins = 0;
         int totalAbsent = 0;
 
-        // 根据角色筛选
+        // 根据角色筛选未归且未请假的学生
         if (dormAdminBuildingId != null) {
-            // 宿管：查询本楼栋今日未归学生
-            List<Attendance> absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, dormAdminBuildingId, checkDate, "EVENING", "ABSENT"
+            // 宿管：查询本楼栋今日未归且未请假学生
+            List<Attendance> absentWithoutLeaveStudents = getAbsentWithoutLeaveStudents(
+                null, dormAdminBuildingId, checkDate
             );
             
-            if (!absentStudents.isEmpty()) {
-                // 通知辅导员（本楼栋有哪些班级的学生未归）
-                notifiedCounselors = notifyCounselorsOfAbsentStudents(absentStudents, checkDate);
+            if (!absentWithoutLeaveStudents.isEmpty()) {
+                // 通知辅导员（本楼栋有哪些班级的学生未归且未请假）
+                notifiedCounselors = notifyCounselorsOfAbsentStudents(absentWithoutLeaveStudents, checkDate);
                 
                 // 通知学生本人
-                notifiedStudents = notifyStudentsOfAbsent(absentStudents, checkDate);
+                notifiedStudents = notifyStudentsOfAbsent(absentWithoutLeaveStudents, checkDate);
                 
-                totalAbsent = absentStudents.size();
+                totalAbsent = absentWithoutLeaveStudents.size();
             }
         } else if ("COUNSELOR".equals(currentUser.getRole())) {
-            // 辅导员：查询本班级今日未归学生
-            List<Attendance> absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, null, checkDate, "EVENING", "ABSENT"
+            // 辅导员：查询本班级今日未归且未请假学生
+            List<Attendance> absentWithoutLeaveStudents = getAbsentWithoutLeaveStudents(
+                currentUser.getId(), null, checkDate
             );
-            // TODO: 根据辅导员 ID 过滤本班级学生
             
-            if (!absentStudents.isEmpty()) {
+            if (!absentWithoutLeaveStudents.isEmpty()) {
                 // 通知学生本人
-                notifiedStudents = notifyStudentsOfAbsent(absentStudents, checkDate);
+                notifiedStudents = notifyStudentsOfAbsent(absentWithoutLeaveStudents, checkDate);
                 
-                totalAbsent = absentStudents.size();
+                totalAbsent = absentWithoutLeaveStudents.size();
             }
         } else {
-            // 超管：查询所有今日未归学生
-            List<Attendance> absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, null, checkDate, "EVENING", "ABSENT"
+            // 超管：查询所有今日未归且未请假学生
+            List<Attendance> absentWithoutLeaveStudents = getAbsentWithoutLeaveStudents(
+                null, null, checkDate
             );
             
-            if (!absentStudents.isEmpty()) {
+            if (!absentWithoutLeaveStudents.isEmpty()) {
                 // 按楼栋分组通知宿管
-                notifiedDormAdmins = notifyDormAdminsOfAbsentStudents(absentStudents, checkDate);
+                notifiedDormAdmins = notifyDormAdminsOfAbsentStudents(absentWithoutLeaveStudents, checkDate);
                 
                 // 按班级分组通知辅导员
-                notifiedCounselors = notifyCounselorsOfAbsentStudents(absentStudents, checkDate);
+                notifiedCounselors = notifyCounselorsOfAbsentStudents(absentWithoutLeaveStudents, checkDate);
                 
                 // 通知学生本人
-                notifiedStudents = notifyStudentsOfAbsent(absentStudents, checkDate);
+                notifiedStudents = notifyStudentsOfAbsent(absentWithoutLeaveStudents, checkDate);
                 
-                totalAbsent = absentStudents.size();
+                totalAbsent = absentWithoutLeaveStudents.size();
             }
         }
 
@@ -193,10 +192,52 @@ public class NotificationController {
         result.put("notifiedCounselors", notifiedCounselors);
         result.put("notifiedStudents", notifiedStudents);
 
-        String message = String.format("发现 %d 名未归学生，已通知 %d 名宿管、%d 名辅导员、%d 名学生",
+        String message = String.format("发现 %d 名未归且未请假学生，已通知 %d 名宿管、%d 名辅导员、%d 名学生",
             totalAbsent, notifiedDormAdmins, notifiedCounselors, notifiedStudents);
         
         return ResponseEntity.ok(Result.success(result, message));
+    }
+
+    /**
+     * 查询未归且未请假的学生列表
+     */
+    private List<Attendance> getAbsentWithoutLeaveStudents(Long counselorId, Long buildingId, LocalDate checkDate) {
+        List<Attendance> absentStudents;
+        
+        // 查询未归学生
+        if (buildingId != null) {
+            // 宿管：查询本楼栋
+            absentStudents = attendanceService.findByPageAndFilters(
+                1, 1000, null, buildingId, checkDate, "EVENING", "ABSENT"
+            );
+        } else if (counselorId != null) {
+            // 辅导员：查询本班级
+            absentStudents = attendanceService.findByPageAndFilters(
+                1, 1000, counselorId, null, checkDate, "EVENING", "ABSENT"
+            );
+        } else {
+            // 超管：查询全部
+            absentStudents = attendanceService.findByPageAndFilters(
+                1, 1000, null, null, checkDate, "EVENING", "ABSENT"
+            );
+        }
+        
+        if (absentStudents.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 获取未归学生 IDs
+        List<Long> absentStudentIds = absentStudents.stream()
+            .map(Attendance::getStudentId)
+            .toList();
+        
+        // 查询这些学生在指定日期是否有请假申请（PENDING 或 APPROVED 状态）
+        List<Long> onLeaveStudentIds = studentService.findStudentsOnLeave(absentStudentIds, checkDate);
+        
+        // 过滤掉请假的学生，返回未归且未请假的学生
+        return absentStudents.stream()
+            .filter(student -> !onLeaveStudentIds.contains(student.getStudentId()))
+            .toList();
     }
 
     /**
