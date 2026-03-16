@@ -14,10 +14,10 @@
             <!-- 搜索栏 -->
             <el-form :inline="true" :model="searchForm" class="search-form">
                 <el-form-item label="用户名">
-                    <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable />
+                    <el-input v-model="searchForm.username" placeholder="请输入用户名" clearable style="width: 200px" />
                 </el-form-item>
                 <el-form-item label="角色">
-                    <el-select v-model="searchForm.role" placeholder="请选择角色" clearable>
+                    <el-select v-model="searchForm.role" placeholder="请选择角色" clearable style="width: 150px">
                         <el-option label="超级管理员" value="SUPER_ADMIN" />
                         <el-option label="宿舍管理员" value="DORM_ADMIN" />
                         <el-option label="辅导员" value="COUNSELOR" />
@@ -25,7 +25,7 @@
                     </el-select>
                 </el-form-item>
                 <el-form-item label="状态">
-                    <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
+                    <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px">
                         <el-option label="启用" :value="1" />
                         <el-option label="禁用" :value="0" />
                     </el-select>
@@ -133,9 +133,6 @@
                     <el-form-item label="专业" prop="major">
                         <el-input v-model="userForm.major" placeholder="请输入专业" />
                     </el-form-item>
-                    <el-form-item label="辅导员" prop="counselorId">
-                        <el-input v-model="userForm.counselorId" placeholder="请输入辅导员 ID（可选）" type="number" />
-                    </el-form-item>
                     <el-form-item label="入学日期" prop="enrollmentDate">
                         <el-date-picker
                             v-model="userForm.enrollmentDate"
@@ -197,7 +194,6 @@ const userForm = reactive({
     studentNumber: '',
     className: '',
     major: '',
-    counselorId: null,
     enrollmentDate: ''
 })
 
@@ -382,7 +378,6 @@ const handleDialogClose = () => {
     userForm.studentNumber = ''
     userForm.className = ''
     userForm.major = ''
-    userForm.counselorId = null
     userForm.enrollmentDate = ''
     resetPassword.value = false
     originalUserData.value = null
