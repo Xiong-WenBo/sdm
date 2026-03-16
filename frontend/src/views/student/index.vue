@@ -5,6 +5,10 @@
                 <div class="card-header">
                     <span>学生信息管理</span>
                     <div>
+                        <el-button type="warning" @click="handleExport">
+                            <el-icon><Download /></el-icon>
+                            导出名单
+                        </el-button>
                         <el-button type="success" @click="handleDownloadTemplate">
                             <el-icon><Download /></el-icon>
                             下载模板
@@ -354,6 +358,32 @@ const handleDialogClose = () => {
     studentForm.major = ''
     studentForm.counselorId = null
     studentForm.enrollmentDate = ''
+}
+
+const handleExport = async () => {
+    try {
+        const response = await axios.get('/api/student/export', {
+            responseType: 'blob',
+            transformResponse: [(data) => data]
+        })
+        
+        if (!(response.data instanceof Blob)) {
+            ElMessage.error('导出失败：响应数据格式错误')
+            return
+        }
+        
+        const url = window.URL.createObjectURL(response.data)
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', '学生名单.xlsx')
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        window.URL.revokeObjectURL(url)
+        ElMessage.success('导出成功')
+    } catch (error) {
+        console.error('导出失败:', error)
+    }
 }
 
 const handleDownloadTemplate = async () => {

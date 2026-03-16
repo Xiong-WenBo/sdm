@@ -3,12 +3,12 @@
 <div align="center">
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.java.net/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![Vue](https://img.shields.io/badge/Vue-3.x-green.svg)](https://vuejs.org/)
-[![Element Plus](https://img.shields.io/badge/Element%20Plus-latest-blue.svg)](https://element-plus.org/)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Vue](https://img.shields.io/badge/Vue-3.5.30-green.svg)](https://vuejs.org/)
+[![Element Plus](https://img.shields.io/badge/Element%20Plus-2.13.5-blue.svg)](https://element-plus.org/)
 
-**一站式宿舍管理解决方案 | 角色权限控制 | 智能通知推送**
+**一站式宿舍管理解决方案 | 角色权限控制 | 智能通知推送 | 数据可视化**
 
 </div>
 
@@ -36,7 +36,7 @@
 
 | 技术 | 版本 | 描述 |
 |------|------|------|
-| Java | 17 | 开发语言 |
+| Java | 21 | 开发语言 |
 | Spring Boot | 3.2.4 | 核心框架 |
 | Spring Security | 6.x | 安全框架 |
 | JWT | 0.12.5 | Token 认证 |

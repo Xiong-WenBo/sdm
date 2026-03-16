@@ -2,8 +2,8 @@
 -- 宿舍管理系统数据库结构
 -- Dormitory Management System Database Schema
 -- 
--- 版本：v0.2.0
--- 最后更新：2026-03-15
+-- 版本：v0.6.0
+-- 最后更新：2026-03-16
 -- 数据库：MySQL 5.7+
 -- 字符集：utf8mb4
 -- ============================================================
@@ -225,6 +225,61 @@ CREATE TABLE `message` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息通知表';
 
 -- ============================================================
+-- 10. 登录日志表 (login_log)
+-- ============================================================
+-- 记录所有用户的登录行为，支持安全审计
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `login_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志 ID，主键',
+  `user_id` BIGINT DEFAULT NULL COMMENT '用户 ID',
+  `username` VARCHAR(50) NOT NULL COMMENT '用户名',
+  `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名',
+  `role` VARCHAR(20) DEFAULT NULL COMMENT '用户角色',
+  `ip_address` VARCHAR(50) DEFAULT NULL COMMENT 'IP 地址',
+  `user_agent` VARCHAR(255) DEFAULT NULL COMMENT '用户代理',
+  `login_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '登录时间',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'SUCCESS' COMMENT '登录状态：SUCCESS(成功)/FAILED(失败)',
+  `message` VARCHAR(255) DEFAULT NULL COMMENT '备注信息',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_username` (`username`),
+  KEY `idx_login_time` (`login_time`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录日志表';
+
+-- ============================================================
+-- 11. 操作日志表 (operation_log)
+-- ============================================================
+-- 记录所有用户的操作行为，支持安全审计和追溯
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `operation_log` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志 ID，主键',
+  `user_id` BIGINT DEFAULT NULL COMMENT '用户 ID',
+  `username` VARCHAR(50) NOT NULL COMMENT '用户名',
+  `real_name` VARCHAR(50) DEFAULT NULL COMMENT '真实姓名',
+  `role` VARCHAR(20) DEFAULT NULL COMMENT '用户角色',
+  `operation` VARCHAR(50) NOT NULL COMMENT '操作类型：CREATE(新增)/UPDATE(修改)/DELETE(删除)/QUERY(查询)/EXPORT(导出)/IMPORT(导入)',
+  `module` VARCHAR(50) NOT NULL COMMENT '操作模块：USER(用户)/BUILDING(楼栋)/ROOM(房间)/STUDENT(学生)/ASSIGNMENT(分配)/ATTENDANCE(查寝)/REPAIR(报修)/LEAVE(请假)/MESSAGE(消息)',
+  `description` VARCHAR(500) DEFAULT NULL COMMENT '操作描述',
+  `request_method` VARCHAR(10) DEFAULT NULL COMMENT '请求方法：GET/POST/PUT/DELETE',
+  `request_url` VARCHAR(255) DEFAULT NULL COMMENT '请求 URL',
+  `request_params` TEXT DEFAULT NULL COMMENT '请求参数',
+  `ip_address` VARCHAR(50) DEFAULT NULL COMMENT 'IP 地址',
+  `user_agent` VARCHAR(255) DEFAULT NULL COMMENT '用户代理',
+  `operation_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  `execution_time` BIGINT DEFAULT NULL COMMENT '执行耗时（毫秒）',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'SUCCESS' COMMENT '操作状态：SUCCESS(成功)/FAILED(失败)',
+  `error_message` TEXT DEFAULT NULL COMMENT '错误信息',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_username` (`username`),
+  KEY `idx_operation_time` (`operation_time`),
+  KEY `idx_module` (`module`),
+  KEY `idx_operation` (`operation`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+-- ============================================================
 -- 数据表关系说明
 -- ============================================================
 -- 1. user 表是核心认证表，所有角色都在此表有记录
@@ -236,6 +291,8 @@ CREATE TABLE `message` (
 -- 7. repair 表关联 student、room 和 admin（处理人）
 -- 8. leave_request 表关联 student 和 approver（审批人）
 -- 9. message 表关联 user（接收者）
+-- 10. login_log 表记录用户登录行为（安全审计）
+-- 11. operation_log 表记录用户操作行为（操作追溯）
 -- ============================================================
 
 -- 恢复外键检查

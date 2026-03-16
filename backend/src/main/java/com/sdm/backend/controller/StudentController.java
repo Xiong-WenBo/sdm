@@ -4,6 +4,7 @@ import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
 import com.sdm.backend.service.StudentService;
+import com.sdm.backend.util.ExcelExportUtil;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -157,6 +158,29 @@ public class StudentController {
         }
         studentService.deleteByUserId(student.getUserId());
         return ResponseEntity.ok(Result.success(null, "学生删除成功"));
+    }
+
+    /**
+     * 导出学生名单 Excel
+     */
+    @GetMapping("/export")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
+    @Log(module = "STUDENT", operation = "EXPORT", description = "导出学生名单")
+    public ResponseEntity<byte[]> exportStudents() {
+        try {
+            List<Student> students = studentService.findAll();
+            
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            ExcelExportUtil.exportExcel(students, Student.class, "学生名单", os);
+            
+            return ResponseEntity.ok()
+                .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .header("Content-Disposition", "attachment; filename=\"学生名单.xlsx\"")
+                .body(os.toByteArray());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**
