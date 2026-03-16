@@ -51,9 +51,11 @@ public class DashboardService {
         int totalOccupancy = rooms.stream().mapToInt(r -> r.getCurrentOccupancy() != null ? r.getCurrentOccupancy() : 0).sum();
         stats.put("totalOccupancy", totalOccupancy);
         
-        // 计算入住率
-        double occupancyRate = rooms.size() > 0 ? (double) totalOccupancy / rooms.size() * 100 : 0;
+        // 计算入住率（入住人数/总床位数）
+        int totalCapacity = rooms.stream().mapToInt(r -> r.getCapacity() != null ? r.getCapacity() : 0).sum();
+        double occupancyRate = totalCapacity > 0 ? (double) totalOccupancy / totalCapacity * 100 : 0;
         stats.put("occupancyRate", Math.round(occupancyRate * 100.0) / 100.0);
+        stats.put("totalCapacity", totalCapacity);
         
         List<Student> students = studentMapper.findAll();
         stats.put("totalStudents", students.size());
@@ -71,8 +73,21 @@ public class DashboardService {
         long pendingRepairs = allRepairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
         stats.put("pendingRepairs", pendingRepairs);
         
+        // 今日请假统计（过滤非今日数据，同一人合并）
+        java.time.LocalDateTime startOfDay = today.atStartOfDay();
+        java.time.LocalDateTime endOfDay = today.atTime(23, 59, 59);
+        
         List<LeaveRequest> allLeaves = leaveRequestMapper.findAll();
-        long pendingLeaves = allLeaves.stream().filter(l -> "PENDING".equals(l.getStatus())).count();
+        long pendingLeaves = allLeaves.stream()
+            .filter(l -> "PENDING".equals(l.getStatus()))
+            .filter(l -> {
+                // 过滤出今日在请假期间内的记录
+                return !(l.getEndTime().isBefore(startOfDay) || l.getStartTime().isAfter(endOfDay));
+            })
+            .map(LeaveRequest::getStudentId)
+            .distinct()
+            .count();
+        
         stats.put("pendingLeaves", pendingLeaves);
         
         return stats;
@@ -98,9 +113,11 @@ public class DashboardService {
         stats.put("occupiedRooms", occupiedRooms);
         stats.put("totalOccupancy", totalOccupancy);
         
-        // 计算入住率
-        double occupancyRate = rooms.size() > 0 ? (double) occupiedRooms / rooms.size() * 100 : 0;
+        // 计算入住率（入住人数/总床位数）
+        int totalCapacity = rooms.stream().mapToInt(r -> r.getCapacity() != null ? r.getCapacity() : 0).sum();
+        double occupancyRate = totalCapacity > 0 ? (double) totalOccupancy / totalCapacity * 100 : 0;
         stats.put("occupancyRate", Math.round(occupancyRate * 100.0) / 100.0);
+        stats.put("totalCapacity", totalCapacity);
         
         // 今日统计 - 通过楼栋 ID 查询本楼栋学生
         LocalDate today = LocalDate.now();
@@ -123,9 +140,17 @@ public class DashboardService {
         long pendingRepairs = buildingRepairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
         stats.put("pendingRepairs", pendingRepairs);
         
-        // 本楼栋请假人数
+        // 本楼栋今日请假人数（过滤非今日数据，同一人合并）
+        java.time.LocalDateTime startOfDay = today.atStartOfDay();
+        java.time.LocalDateTime endOfDay = today.atTime(23, 59, 59);
         List<LeaveRequest> buildingLeaves = leaveRequestMapper.findByBuildingId(buildingId);
-        stats.put("buildingLeaves", buildingLeaves.size());
+        long todayLeaves = buildingLeaves.stream()
+            .filter(l -> "PENDING".equals(l.getStatus()) || "APPROVED".equals(l.getStatus()))
+            .filter(l -> !(l.getEndTime().isBefore(startOfDay) || l.getStartTime().isAfter(endOfDay)))
+            .map(LeaveRequest::getStudentId)
+            .distinct()
+            .count();
+        stats.put("buildingLeaves", todayLeaves);
         
         return stats;
     }
@@ -164,10 +189,24 @@ public class DashboardService {
         stats.put("todayLeave", leave);
         stats.put("todayAbsent", absent);
         
-        // 请假统计
+        // 请假统计（过滤非今日数据，同一人合并）
+        java.time.LocalDateTime startOfDay = today.atStartOfDay();
+        java.time.LocalDateTime endOfDay = today.atTime(23, 59, 59);
+        
         List<LeaveRequest> classLeaves = leaveRequestMapper.findByCounselorId(counselorId);
-        long pendingLeaves = classLeaves.stream().filter(l -> "PENDING".equals(l.getStatus())).count();
-        long approvedLeaves = classLeaves.stream().filter(l -> "APPROVED".equals(l.getStatus())).count();
+        long pendingLeaves = classLeaves.stream()
+            .filter(l -> "PENDING".equals(l.getStatus()))
+            .filter(l -> !(l.getEndTime().isBefore(startOfDay) || l.getStartTime().isAfter(endOfDay)))
+            .map(LeaveRequest::getStudentId)
+            .distinct()
+            .count();
+        
+        long approvedLeaves = classLeaves.stream()
+            .filter(l -> "APPROVED".equals(l.getStatus()))
+            .filter(l -> !(l.getEndTime().isBefore(startOfDay) || l.getStartTime().isAfter(endOfDay)))
+            .map(LeaveRequest::getStudentId)
+            .distinct()
+            .count();
         
         stats.put("pendingLeaves", pendingLeaves);
         stats.put("approvedLeaves", approvedLeaves);

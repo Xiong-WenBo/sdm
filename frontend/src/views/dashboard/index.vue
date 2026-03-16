@@ -217,8 +217,8 @@
                                 <span class="value">{{ stats.buildingLeaves || 0 }}</span>
                             </div>
                             <div class="detail-item">
-                                <span class="label">本楼栋</span>
-                                <span class="value">全部</span>
+                                <span class="label">统计范围</span>
+                                <span class="value">本楼栋</span>
                             </div>
                         </div>
                     </el-card>
