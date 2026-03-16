@@ -72,4 +72,39 @@ public class DashboardController {
 
         return ResponseEntity.ok(Result.success(stats));
     }
+
+    @GetMapping("/occupancy-trend")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    public ResponseEntity<Result<Map<String, Object>>> getOccupancyTrend() {
+        Map<String, Object> trend = dashboardService.getOccupancyTrend();
+        return ResponseEntity.ok(Result.success(trend));
+    }
+
+    @GetMapping("/leave-type-distribution")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
+    public ResponseEntity<Result<Map<String, Object>>> getLeaveTypeDistribution() {
+        Map<String, Object> distribution = dashboardService.getLeaveTypeDistribution();
+        return ResponseEntity.ok(Result.success(distribution));
+    }
+
+    @GetMapping("/attendance-status")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
+    public ResponseEntity<Result<Map<String, Object>>> getAttendanceStatus() {
+        Map<String, Object> status = dashboardService.getAttendanceStatus();
+        return ResponseEntity.ok(Result.success(status));
+    }
+
+    @GetMapping("/repair-status")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    public ResponseEntity<Result<Map<String, Object>>> getRepairStatus() {
+        Map<String, Object> status = dashboardService.getRepairStatus();
+        return ResponseEntity.ok(Result.success(status));
+    }
+
+    @GetMapping("/building-occupancy")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Result<Map<String, Object>>> getBuildingOccupancy() {
+        Map<String, Object> occupancy = dashboardService.getBuildingOccupancy();
+        return ResponseEntity.ok(Result.success(occupancy));
+    }
 }

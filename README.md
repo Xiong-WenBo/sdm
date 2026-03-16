@@ -37,21 +37,22 @@
 | 技术 | 版本 | 描述 |
 |------|------|------|
 | Java | 17 | 开发语言 |
-| Spring Boot | 3.x | 核心框架 |
+| Spring Boot | 3.2.4 | 核心框架 |
 | Spring Security | 6.x | 安全框架 |
-| JWT | - | Token 认证 |
-| MyBatis | - | ORM 框架 |
+| JWT | 0.12.5 | Token 认证 |
+| MyBatis | 3.5.15 | ORM 框架 |
 | MySQL | 5.7+ | 数据库 |
 
 ### 前端技术
 
 | 技术 | 版本 | 描述 |
 |------|------|------|
-| Vue | 3.x | 渐进式框架 |
-| Vite | 4.x | 构建工具 |
-| Element Plus | 2.x | UI 组件库 |
-| Vue Router | 4.x | 路由管理 |
-| Axios | - | HTTP 客户端 |
+| Vue | 3.5.30 | 渐进式框架 |
+| Vite | 8.0.0 | 构建工具 |
+| Element Plus | 2.13.5 | UI 组件库 |
+| Vue Router | 4.6.4 | 路由管理 |
+| Axios | 1.13.6 | HTTP 客户端 |
+| ECharts | 6.0.0 | 数据可视化 |
 
 ---
 

@@ -6,6 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -268,5 +271,159 @@ public class DashboardService {
         }
         
         return stats;
+    }
+
+    /**
+     * 获取近 7 天入住率趋势
+     */
+    public Map<String, Object> getOccupancyTrend() {
+        Map<String, Object> result = new HashMap<>();
+        List<String> dates = new ArrayList<>();
+        List<Double> rates = new ArrayList<>();
+        
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM-dd");
+        
+        for (int i = 6; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
+            dates.add(date.format(formatter));
+            
+            // 计算当天的入住率（简化处理，实际应该按天统计）
+            List<Room> rooms = roomMapper.findAll();
+            int totalCapacity = rooms.stream().mapToInt(r -> r.getCapacity() != null ? r.getCapacity() : 0).sum();
+            
+            List<Assignment> assignments = assignmentMapper.findAll();
+            long occupancy = assignments.stream()
+                .filter(a -> a.getCheckInDate() != null)
+                .filter(a -> a.getCheckOutDate() == null || a.getCheckOutDate().isAfter(date))
+                .count();
+            
+            double rate = totalCapacity > 0 ? (double) occupancy / totalCapacity * 100 : 0;
+            rates.add(Math.round(rate * 100.0) / 100.0);
+        }
+        
+        result.put("dates", dates);
+        result.put("rates", rates);
+        return result;
+    }
+
+    /**
+     * 获取请假类型分布
+     */
+    public Map<String, Object> getLeaveTypeDistribution() {
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> types = new ArrayList<>();
+        
+        List<LeaveRequest> allLeaves = leaveRequestMapper.findAll();
+        Map<String, Long> typeCount = allLeaves.stream()
+            .filter(l -> l.getType() != null)
+            .collect(Collectors.groupingBy(LeaveRequest::getType, Collectors.counting()));
+        
+        typeCount.forEach((type, count) -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("name", getLeaveTypeName(type));
+            item.put("value", count);
+            types.add(item);
+        });
+        
+        result.put("types", types);
+        return result;
+    }
+
+    /**
+     * 获取查寝情况统计
+     */
+    public Map<String, Object> getAttendanceStatus() {
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> status = new ArrayList<>();
+        
+        LocalDate today = LocalDate.now();
+        List<Attendance> todayAttendances = attendanceMapper.findByDate(today);
+        
+        long normal = todayAttendances.stream().filter(a -> "NORMAL".equals(a.getStatus())).count();
+        long absent = todayAttendances.stream().filter(a -> "ABSENT".equals(a.getStatus())).count();
+        long leave = todayAttendances.stream().filter(a -> "LEAVE".equals(a.getStatus())).count();
+        
+        status.add(createPieItem("正常", normal));
+        status.add(createPieItem("未归", absent));
+        status.add(createPieItem("请假", leave));
+        
+        result.put("status", status);
+        return result;
+    }
+
+    /**
+     * 获取报修处理统计
+     */
+    public Map<String, Object> getRepairStatus() {
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> status = new ArrayList<>();
+        
+        List<Repair> allRepairs = repairMapper.findAll();
+        
+        long pending = allRepairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
+        long processing = allRepairs.stream().filter(r -> "PROCESSING".equals(r.getStatus())).count();
+        long completed = allRepairs.stream().filter(r -> "COMPLETED".equals(r.getStatus())).count();
+        
+        status.add(createPieItem("待处理", pending, "#F56C6C"));
+        status.add(createPieItem("处理中", processing, "#E6A23C"));
+        status.add(createPieItem("已完成", completed, "#67C23A"));
+        
+        result.put("status", status);
+        return result;
+    }
+
+    /**
+     * 获取各楼栋入住率对比
+     */
+    public Map<String, Object> getBuildingOccupancy() {
+        Map<String, Object> result = new HashMap<>();
+        List<String> buildings = new ArrayList<>();
+        List<Double> rates = new ArrayList<>();
+        
+        List<Building> buildingList = buildingMapper.findAll();
+        
+        for (Building building : buildingList) {
+            buildings.add(building.getName());
+            
+            List<Room> rooms = roomMapper.findByBuildingId(building.getId());
+            int totalCapacity = rooms.stream().mapToInt(r -> r.getCapacity() != null ? r.getCapacity() : 0).sum();
+            
+            List<Assignment> assignments = assignmentMapper.findByBuildingId(building.getId());
+            long occupancy = assignments.stream()
+                .filter(a -> a.getCheckInDate() != null)
+                .filter(a -> a.getCheckOutDate() == null)
+                .count();
+            
+            double rate = totalCapacity > 0 ? (double) occupancy / totalCapacity * 100 : 0;
+            rates.add(Math.round(rate * 100.0) / 100.0);
+        }
+        
+        result.put("buildings", buildings);
+        result.put("rates", rates);
+        return result;
+    }
+
+    private String getLeaveTypeName(String type) {
+        switch (type) {
+            case "SICK_LEAVE": return "病假";
+            case "PERSONAL_LEAVE": return "事假";
+            case "OFFICIAL_LEAVE": return "公假";
+            default: return type;
+        }
+    }
+
+    private Map<String, Object> createPieItem(String name, Number value) {
+        return createPieItem(name, value, null);
+    }
+
+    private Map<String, Object> createPieItem(String name, Number value, String color) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("name", name);
+        item.put("value", value);
+        if (color != null) {
+            item.put("itemStyle", Map.of("color", color));
+        }
+        return item;
     }
 }

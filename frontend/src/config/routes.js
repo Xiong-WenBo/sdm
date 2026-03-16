@@ -134,6 +134,16 @@ const routes = [
                     icon: 'DocumentCopy',
                     roles: [Role.SUPER_ADMIN]
                 }
+            },
+            {
+                path: 'dashboard/statistics',
+                name: 'DashboardStatistics',
+                component: () => import('../views/dashboard/StatisticsDetail.vue'),
+                meta: { 
+                    title: '数据统计',
+                    icon: 'TrendCharts',
+                    roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR]
+                }
             }
         ]
     },

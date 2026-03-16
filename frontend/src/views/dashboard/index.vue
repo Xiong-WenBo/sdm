@@ -2,6 +2,21 @@
     <div class="dashboard">
         <!-- 超级管理员视图 -->
         <div v-if="userRole === 'SUPER_ADMIN'" class="dashboard-content">
+            <!-- 查看详细数据入口 -->
+            <el-card shadow="hover" class="view-detail-card" @click="viewDetail">
+                <div class="detail-content">
+                    <div class="detail-text">
+                        <div class="detail-title">
+                            <el-icon><TrendCharts /></el-icon>
+                            <span>查看详细数据</span>
+                        </div>
+                        <div class="detail-desc">查看入住率趋势、请假分布、查寝统计等更多数据可视化图表</div>
+                    </div>
+                    <div class="detail-icon">
+                        <el-icon class="arrow-icon"><ArrowRight /></el-icon>
+                    </div>
+                </div>
+            </el-card>
             <el-row :gutter="20" class="stats-row">
                 <el-col :span="6">
                     <el-card shadow="hover" class="stat-card">
@@ -424,12 +439,19 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { OfficeBuilding, HomeFilled, User, TrendCharts, UserFilled, CircleCheckFilled, Document, CircleCloseFilled, Tools, Calendar } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
 
+const router = useRouter()
 const userRole = ref(localStorage.getItem('role') || '')
 const stats = ref({})
+
+// 查看详细数据
+const viewDetail = () => {
+    router.push('/dashboard/statistics')
+}
 const loading = ref(false)
 
 const loadStats = async () => {
@@ -480,6 +502,75 @@ onMounted(() => {
 .dashboard-content {
     max-width: 1400px;
     margin: 0 auto;
+}
+
+/* 查看详细数据卡片 */
+.view-detail-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+}
+
+.view-detail-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+}
+
+.detail-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+}
+
+.detail-text {
+    flex: 1;
+}
+
+.detail-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 8px;
+}
+
+.detail-title .el-icon {
+    font-size: 24px;
+}
+
+.detail-desc {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.detail-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    margin-left: 20px;
+}
+
+.arrow-icon {
+    font-size: 30px;
+    color: #fff;
+    animation: slideRight 2s infinite;
+}
+
+@keyframes slideRight {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(10px);
+    }
 }
 
 .stats-row {
