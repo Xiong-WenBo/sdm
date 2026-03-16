@@ -79,4 +79,20 @@ public class RoomService {
         // 这里可以根据 assignment 表重新计算入住人数
         // 暂时简单实现，后续在宿舍分配模块完善
     }
+
+    public int countByBuildingId(Long buildingId) {
+        return roomMapper.countByBuildingId(buildingId);
+    }
+
+    public int countOccupiedByBuildingId(Long buildingId) {
+        return roomMapper.countOccupiedByBuildingId(buildingId);
+    }
+
+    public int countOccupancyByBuildingId(Long buildingId) {
+        return roomMapper.countOccupancyByBuildingId(buildingId);
+    }
+
+    public int countTotalOccupancy() {
+        return roomMapper.countTotalOccupancy();
+    }
 }
