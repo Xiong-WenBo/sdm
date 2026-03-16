@@ -120,4 +120,11 @@ public class AssignmentService {
         
         return 1;
     }
+
+    /**
+     * 查询学生当前的住宿分配
+     */
+    public Assignment findActiveByStudentId(Long studentId) {
+        return assignmentMapper.findActiveByStudentId(studentId);
+    }
 }

@@ -176,4 +176,11 @@
     <delete id="deleteById">
         DELETE FROM assignment WHERE id = #{id}
     </delete>
+
+    <select id="findActiveByStudentId" resultMap="BaseResultMap">
+        SELECT * FROM assignment 
+        WHERE student_id = #{studentId} AND status = 'ACTIVE'
+        ORDER BY check_in_date DESC
+        LIMIT 1
+    </select>
 </mapper>

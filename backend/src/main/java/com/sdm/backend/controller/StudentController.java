@@ -326,7 +326,7 @@ public class StudentController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
         
-        com.sdm.backend.entity.User user = studentService.findUserByUsername(username);
+        com.sdm.backend.entity.User user = studentService.findByUsername(username);
         return user != null ? user.getId() : null;
     }
 

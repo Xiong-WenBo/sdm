@@ -46,6 +46,14 @@ public class StudentService {
         return student != null ? student.getUserId() : null;
     }
 
+    /**
+     * 根据用户 ID 获取学生 ID
+     */
+    public Long getStudentIdByUserId(Long userId) {
+        Student student = studentMapper.findByUserId(userId);
+        return student != null ? student.getId() : null;
+    }
+
     public int updateStudent(Student student) {
         return studentMapper.update(student);
     }
@@ -123,7 +131,7 @@ public class StudentService {
     /**
      * 根据用户名查找用户
      */
-    public com.sdm.backend.entity.User findUserByUsername(String username) {
+    public com.sdm.backend.entity.User findByUsername(String username) {
         return userService.findByUsername(username);
     }
 }

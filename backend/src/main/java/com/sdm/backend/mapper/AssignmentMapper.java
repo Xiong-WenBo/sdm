@@ -45,4 +45,9 @@ public interface AssignmentMapper {
      */
     List<Assignment> findAvailableRooms(@Param("buildingId") Long buildingId,
                                        @Param("gender") String gender);
+    
+    /**
+     * 查询学生当前的住宿分配（ACTIVE 状态）
+     */
+    Assignment findActiveByStudentId(@Param("studentId") Long studentId);
 }

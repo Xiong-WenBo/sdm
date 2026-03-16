@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.RepairMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.Repair">
+        <id column="id" property="id"/>
+        <result column="student_id" property="studentId"/>
+        <result column="room_id" property="roomId"/>
+        <result column="title" property="title"/>
+        <result column="description" property="description"/>
+        <result column="category" property="category"/>
+        <result column="priority" property="priority"/>
+        <result column="status" property="status"/>
+        <result column="admin_id" property="adminId"/>
+        <result column="handle_note" property="handleNote"/>
+        <result column="handle_time" property="handleTime"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="student_number" property="studentNumber"/>
+        <result column="student_name" property="studentName"/>
+        <result column="room_number" property="roomNumber"/>
+        <result column="building_id" property="buildingId"/>
+        <result column="building_name" property="buildingName"/>
+        <result column="admin_name" property="adminName"/>
+    </resultMap>
+
+    <select id="findByStudentId" resultMap="BaseResultMap">
+        SELECT r.*, s.student_number, u.real_name as student_name, 
+               rm.room_number, rm.building_id, b.name as building_name,
+               a.real_name as admin_name
+        FROM repair r
+        LEFT JOIN student s ON r.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room rm ON r.room_id = rm.id
+        LEFT JOIN building b ON rm.building_id = b.id
+        LEFT JOIN user a ON r.admin_id = a.id
+        WHERE r.student_id = #{studentId}
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="findByBuildingId" resultMap="BaseResultMap">
+        SELECT r.*, s.student_number, u.real_name as student_name, 
+               rm.room_number, rm.building_id, b.name as building_name,
+               a.real_name as admin_name
+        FROM repair r
+        LEFT JOIN student s ON r.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room rm ON r.room_id = rm.id
+        LEFT JOIN building b ON rm.building_id = b.id
+        LEFT JOIN user a ON r.admin_id = a.id
+        WHERE rm.building_id = #{buildingId}
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT r.*, s.student_number, u.real_name as student_name, 
+               rm.room_number, rm.building_id, b.name as building_name,
+               a.real_name as admin_name
+        FROM repair r
+        LEFT JOIN student s ON r.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room rm ON r.room_id = rm.id
+        LEFT JOIN building b ON rm.building_id = b.id
+        LEFT JOIN user a ON r.admin_id = a.id
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT r.*, s.student_number, u.real_name as student_name, 
+               rm.room_number, rm.building_id, b.name as building_name,
+               a.real_name as admin_name
+        FROM repair r
+        LEFT JOIN student s ON r.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room rm ON r.room_id = rm.id
+        LEFT JOIN building b ON rm.building_id = b.id
+        LEFT JOIN user a ON r.admin_id = a.id
+        WHERE r.id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.Repair" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO repair (student_id, room_id, title, description, category, priority, status, created_at)
+        VALUES (#{studentId}, #{roomId}, #{title}, #{description}, #{category}, #{priority}, #{status}, #{createdAt})
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.Repair">
+        UPDATE repair
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="priority != null">priority = #{priority},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="adminId != null">admin_id = #{adminId},</if>
+            <if test="handleNote != null">handle_note = #{handleNote},</if>
+            <if test="handleTime != null">handle_time = #{handleTime},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM repair WHERE id = #{id}
+    </delete>
+
+    <select id="findByStudentIdAndStatus" resultMap="BaseResultMap">
+        SELECT r.*, s.student_number, u.real_name as student_name, 
+               rm.room_number, rm.building_id, b.name as building_name,
+               a.real_name as admin_name
+        FROM repair r
+        LEFT JOIN student s ON r.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room rm ON r.room_id = rm.id
+        LEFT JOIN building b ON rm.building_id = b.id
+        LEFT JOIN user a ON r.admin_id = a.id
+        WHERE r.student_id = #{studentId} AND r.status = #{status}
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="findByBuildingIdAndStatus" resultMap="BaseResultMap">
+        SELECT r.*, s.student_number, u.real_name as student_name, 
+               rm.room_number, rm.building_id, b.name as building_name,
+               a.real_name as admin_name
+        FROM repair r
+        LEFT JOIN student s ON r.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN room rm ON r.room_id = rm.id
+        LEFT JOIN building b ON rm.building_id = b.id
+        LEFT JOIN user a ON r.admin_id = a.id
+        WHERE rm.building_id = #{buildingId} AND r.status = #{status}
+        ORDER BY r.created_at DESC
+    </select>
+</mapper>
