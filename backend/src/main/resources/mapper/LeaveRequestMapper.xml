@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.LeaveRequestMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.LeaveRequest">
+        <id column="id" property="id"/>
+        <result column="student_id" property="studentId"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="reason" property="reason"/>
+        <result column="type" property="type"/>
+        <result column="status" property="status"/>
+        <result column="approver_id" property="approverId"/>
+        <result column="approve_note" property="approveNote"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="student_number" property="studentNumber"/>
+        <result column="student_name" property="studentName"/>
+        <result column="class_name" property="className"/>
+        <result column="counselor_name" property="counselorName"/>
+        <result column="approver_name" property="approverName"/>
+    </resultMap>
+
+    <select id="findByStudentId" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        WHERE l.student_id = #{studentId}
+        ORDER BY l.created_at DESC
+    </select>
+
+    <select id="findByCounselorId" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        WHERE s.counselor_id = #{counselorId}
+        ORDER BY l.created_at DESC
+    </select>
+
+    <select id="findByBuildingId" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        LEFT JOIN assignment ast ON s.id = ast.student_id
+        LEFT JOIN room r ON ast.room_id = r.id
+        WHERE r.building_id = #{buildingId} AND ast.status = 'ACTIVE'
+        ORDER BY l.created_at DESC
+    </select>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        ORDER BY l.created_at DESC
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        WHERE l.id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.LeaveRequest" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO leave_request (student_id, start_time, end_time, reason, type, status, created_at)
+        VALUES (#{studentId}, #{startTime}, #{endTime}, #{reason}, #{type}, #{status}, #{createdAt})
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.LeaveRequest">
+        UPDATE leave_request
+        <set>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="reason != null">reason = #{reason},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="approverId != null">approver_id = #{approverId},</if>
+            <if test="approveNote != null">approve_note = #{approveNote},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM leave_request WHERE id = #{id}
+    </delete>
+
+    <select id="findByStudentIdAndStatus" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        WHERE l.student_id = #{studentId} AND l.status = #{status}
+        ORDER BY l.created_at DESC
+    </select>
+
+    <select id="findByCounselorIdAndStatus" resultMap="BaseResultMap">
+        SELECT l.*, s.student_number, u.real_name as student_name, 
+               s.class_name, cu.real_name as counselor_name,
+               a.real_name as approver_name
+        FROM leave_request l
+        LEFT JOIN student s ON l.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user cu ON s.counselor_id = cu.id
+        LEFT JOIN user a ON l.approver_id = a.id
+        WHERE s.counselor_id = #{counselorId} AND l.status = #{status}
+        ORDER BY l.created_at DESC
+    </select>
+</mapper>

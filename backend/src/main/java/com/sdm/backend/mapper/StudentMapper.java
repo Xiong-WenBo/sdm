@@ -38,4 +38,11 @@ public interface StudentMapper {
     
     Student findByStudentNumberExclude(@Param("studentNumber") String studentNumber,
                                        @Param("excludeUserId") Long excludeUserId);
+    
+    /**
+     * 查询在指定时间段内有请假申请的学生 ID 列表
+     */
+    List<Long> findStudentsOnLeave(@Param("studentIds") List<Long> studentIds,
+                                   @Param("startTime") java.time.LocalDateTime startTime,
+                                   @Param("endTime") java.time.LocalDateTime endTime);
 }

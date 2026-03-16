@@ -134,4 +134,19 @@ public class StudentService {
     public com.sdm.backend.entity.User findByUsername(String username) {
         return userService.findByUsername(username);
     }
+
+    /**
+     * 查询在指定日期有请假申请的学生 ID 列表
+     * @param studentIds 学生 ID 列表
+     * @param date 日期
+     * @return 有请假申请的学生 ID 列表
+     */
+    public List<Long> findStudentsOnLeave(List<Long> studentIds, LocalDate date) {
+        // 查询这些学生在指定日期有请假记录（PENDING 或 APPROVED 状态）
+        // 请假时间范围包含指定日期
+        java.time.LocalDateTime startOfDay = date.atStartOfDay();
+        java.time.LocalDateTime endOfDay = date.atTime(23, 59, 59);
+        
+        return studentMapper.findStudentsOnLeave(studentIds, startOfDay, endOfDay);
+    }
 }

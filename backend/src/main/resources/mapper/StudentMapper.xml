@@ -136,4 +136,18 @@
         WHERE student_number = #{studentNumber} 
         AND user_id != #{excludeUserId}
     </select>
+
+    <select id="findStudentsOnLeave" resultType="java.lang.Long">
+        SELECT DISTINCT student_id FROM leave_request
+        WHERE student_id IN
+        <foreach collection="studentIds" item="studentId" open="(" separator="," close=")">
+            #{studentId}
+        </foreach>
+        AND status IN ('PENDING', 'APPROVED')
+        AND (
+            (start_time &lt;= #{startTime} AND end_time &gt;= #{endTime})
+            OR (start_time &lt;= #{startTime} AND end_time &gt;= #{startTime})
+            OR (start_time &lt;= #{endTime} AND end_time &gt;= #{endTime})
+        )
+    </select>
 </mapper>

@@ -62,6 +62,62 @@ public class NotificationController {
     }
 
     /**
+     * 查询当日未归且未请假的学生列表（用于后续通知和统计）
+     */
+    @GetMapping("/absent/without-leave")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
+    public ResponseEntity<Result<List<Attendance>>> getAbsentStudentsWithoutLeave(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkDate
+    ) {
+        User currentUser = getCurrentUser();
+        Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
+        
+        // 如果没有指定日期，默认为今天
+        if (checkDate == null) {
+            checkDate = LocalDate.now();
+        }
+        
+        List<Attendance> absentStudents;
+        
+        // 根据角色筛选未归学生
+        if (dormAdminBuildingId != null) {
+            // 宿管：查询本楼栋今日未归学生
+            absentStudents = attendanceService.findByPageAndFilters(
+                1, 1000, null, dormAdminBuildingId, checkDate, "EVENING", "ABSENT"
+            );
+        } else if ("COUNSELOR".equals(currentUser.getRole())) {
+            // 辅导员：查询本班级今日未归学生
+            absentStudents = attendanceService.findByPageAndFilters(
+                1, 1000, currentUser.getId(), null, checkDate, "EVENING", "ABSENT"
+            );
+        } else {
+            // 超管：查询所有今日未归学生
+            absentStudents = attendanceService.findByPageAndFilters(
+                1, 1000, null, null, checkDate, "EVENING", "ABSENT"
+            );
+        }
+        
+        // 获取这些学生的 IDs
+        if (absentStudents.isEmpty()) {
+            return ResponseEntity.ok(Result.success(new ArrayList<>()));
+        }
+        
+        List<Long> absentStudentIds = absentStudents.stream()
+            .map(Attendance::getStudentId)
+            .toList();
+        
+        // 查询这些学生在指定日期是否有请假申请（PENDING 或 APPROVED 状态）
+        List<Long> onLeaveStudentIds = studentService.findStudentsOnLeave(absentStudentIds, checkDate);
+        
+        // 过滤掉请假的学生，返回未请假且未归的学生
+        List<Attendance> absentWithoutLeave = absentStudents.stream()
+            .filter(student -> !onLeaveStudentIds.contains(student.getStudentId()))
+            .toList();
+        
+        return ResponseEntity.ok(Result.success(absentWithoutLeave));
+    }
+
+    /**
      * 手动触发查询当日未归学生并发送通知
      */
     @PostMapping("/absent/today")
