@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Building;
 import com.sdm.backend.service.BuildingService;
@@ -65,6 +66,7 @@ public class BuildingController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "BUILDING", operation = "CREATE", description = "新增楼栋")
     public ResponseEntity<Result<Void>> createBuilding(@RequestBody Building building) {
         if (building.getName() == null || building.getName().isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "楼栋名称不能为空"));
@@ -84,6 +86,7 @@ public class BuildingController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "BUILDING", operation = "UPDATE", description = "修改楼栋信息")
     public ResponseEntity<Result<Void>> updateBuilding(@PathVariable Long id, @RequestBody Building building) {
         Building existingBuilding = buildingService.findById(id);
         if (existingBuilding == null) {
@@ -105,6 +108,7 @@ public class BuildingController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "BUILDING", operation = "DELETE", description = "删除楼栋")
     public ResponseEntity<Result<Void>> deleteBuilding(@PathVariable Long id) {
         Building building = buildingService.findById(id);
         if (building == null) {

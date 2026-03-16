@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Message;
 import com.sdm.backend.entity.User;
@@ -95,6 +96,7 @@ public class MessageController {
     }
 
     @PutMapping("/{id}/read")
+    @Log(module = "MESSAGE", operation = "UPDATE", description = "标记消息为已读")
     public ResponseEntity<Result<Void>> markAsRead(@PathVariable Long id) {
         Message message = messageService.findById(id);
         if (message == null) {
@@ -111,6 +113,7 @@ public class MessageController {
     }
 
     @DeleteMapping("/{id}")
+    @Log(module = "MESSAGE", operation = "DELETE", description = "删除消息")
     public ResponseEntity<Result<Void>> deleteMessage(@PathVariable Long id) {
         Message message = messageService.findById(id);
         if (message == null) {

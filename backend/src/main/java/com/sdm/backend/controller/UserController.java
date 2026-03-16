@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.ChangePasswordRequest;
 import com.sdm.backend.dto.CreateUserRequest;
 import com.sdm.backend.dto.Result;
@@ -74,6 +75,7 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "USER", operation = "CREATE", description = "新增用户")
     public ResponseEntity<Result<Void>> createUser(@RequestBody CreateUserRequest request) {
         // 基础验证
         if (request.getUsername() == null || request.getUsername().isEmpty()) {
@@ -130,6 +132,7 @@ public class UserController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "USER", operation = "UPDATE", description = "修改用户信息")
     public ResponseEntity<Result<Void>> updateUser(@PathVariable Long id, @RequestBody User user) {
         User existingUser = userService.findById(id);
         if (existingUser == null) {
@@ -151,6 +154,7 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "USER", operation = "DELETE", description = "删除用户")
     public ResponseEntity<Result<Void>> deleteUser(@PathVariable Long id) {
         User user = userService.findById(id);
         if (user == null) {

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.LoginLogMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.LoginLog">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="username" property="username"/>
+        <result column="real_name" property="realName"/>
+        <result column="role" property="role"/>
+        <result column="ip_address" property="ipAddress"/>
+        <result column="user_agent" property="userAgent"/>
+        <result column="login_time" property="loginTime"/>
+        <result column="status" property="status"/>
+        <result column="message" property="message"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM login_log WHERE id = #{id}
+    </select>
+
+    <select id="findByPage" resultMap="BaseResultMap">
+        SELECT * FROM login_log ORDER BY login_time DESC LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="findByPageAndFilters" resultMap="BaseResultMap">
+        SELECT * FROM login_log
+        <where>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="startTime != null">
+                AND login_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND login_time &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY login_time DESC LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*) FROM login_log
+    </select>
+
+    <select id="countByFilters" resultType="int">
+        SELECT COUNT(*) FROM login_log
+        <where>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+            <if test="startTime != null">
+                AND login_time &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND login_time &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.LoginLog" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO login_log (user_id, username, real_name, role, ip_address, user_agent, login_time, status, message)
+        VALUES (#{userId}, #{username}, #{realName}, #{role}, #{ipAddress}, #{userAgent}, #{loginTime}, #{status}, #{message})
+    </insert>
+
+    <delete id="deleteById">
+        DELETE FROM login_log WHERE id = #{id}
+    </delete>
+</mapper>

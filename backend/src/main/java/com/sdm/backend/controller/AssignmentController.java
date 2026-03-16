@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Assignment;
 import com.sdm.backend.entity.Building;
@@ -165,6 +166,7 @@ public class AssignmentController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ASSIGNMENT", operation = "CREATE", description = "分配宿舍")
     public ResponseEntity<Result<Void>> createAssignment(@RequestBody Assignment assignment) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
@@ -209,6 +211,7 @@ public class AssignmentController {
 
     @PutMapping("/{id}/checkout")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ASSIGNMENT", operation = "UPDATE", description = "退宿处理")
     public ResponseEntity<Result<Void>> checkOut(@PathVariable Long id,
                                                  @RequestParam(required = false) LocalDate checkOutDate) {
         User currentUser = getCurrentUser();
@@ -237,6 +240,7 @@ public class AssignmentController {
 
     @PutMapping("/{id}/transfer")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ASSIGNMENT", operation = "UPDATE", description = "调宿处理")
     public ResponseEntity<Result<Void>> transfer(@PathVariable Long id,
                                                  @RequestParam Long newRoomId,
                                                  @RequestParam String newBedNumber) {
@@ -271,6 +275,7 @@ public class AssignmentController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "ASSIGNMENT", operation = "DELETE", description = "删除住宿记录")
     public ResponseEntity<Result<Void>> deleteAssignment(@PathVariable Long id) {
         Assignment assignment = assignmentService.findById(id);
         if (assignment == null) {

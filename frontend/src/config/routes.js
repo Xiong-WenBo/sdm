@@ -124,6 +124,16 @@ const routes = [
                     icon: 'Calendar',
                     roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR, Role.STUDENT]
                 }
+            },
+            {
+                path: 'log',
+                name: 'Log',
+                component: () => import('../views/log/index.vue'),
+                meta: { 
+                    title: '日志管理',
+                    icon: 'DocumentCopy',
+                    roles: [Role.SUPER_ADMIN]
+                }
             }
         ]
     },

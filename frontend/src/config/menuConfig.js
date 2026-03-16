@@ -64,6 +64,13 @@ export const menus = [
         title: '请假管理',
         icon: 'Calendar',
         roles: [Role.SUPER_ADMIN, Role.DORM_ADMIN, Role.COUNSELOR, Role.STUDENT]
+    },
+    {
+        path: '/log',
+        name: 'Log',
+        title: '日志管理',
+        icon: 'DocumentCopy',
+        roles: [Role.SUPER_ADMIN]
     }
 ]
 

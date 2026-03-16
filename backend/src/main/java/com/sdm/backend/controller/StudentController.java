@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
 import com.sdm.backend.service.StudentService;
@@ -91,6 +92,7 @@ public class StudentController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
+    @Log(module = "STUDENT", operation = "CREATE", description = "新增学生")
     public ResponseEntity<Result<Void>> createStudent(@RequestBody Student student) {
         // 验证学号是否重复
         Student existing = studentService.findByStudentNumber(student.getStudentNumber());
@@ -116,6 +118,7 @@ public class StudentController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
+    @Log(module = "STUDENT", operation = "UPDATE", description = "修改学生信息")
     public ResponseEntity<Result<Void>> updateStudent(@PathVariable Long id, @RequestBody Student student) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String role = authentication.getAuthorities().stream()
@@ -146,6 +149,7 @@ public class StudentController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "STUDENT", operation = "DELETE", description = "删除学生")
     public ResponseEntity<Result<Void>> deleteStudent(@PathVariable Long id) {
         Student student = studentService.findById(id);
         if (student == null) {
@@ -160,6 +164,7 @@ public class StudentController {
      */
     @PostMapping("/import")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "STUDENT", operation = "IMPORT", description = "批量导入学生")
     public ResponseEntity<Result<Map<String, Object>>> importStudents(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "请选择文件"));

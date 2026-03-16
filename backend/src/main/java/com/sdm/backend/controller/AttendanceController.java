@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Attendance;
 import com.sdm.backend.entity.Building;
@@ -141,6 +142,7 @@ public class AttendanceController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ATTENDANCE", operation = "CREATE", description = "录入查寝记录")
     public ResponseEntity<Result<Void>> createAttendance(@RequestBody Attendance attendance) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
@@ -180,6 +182,7 @@ public class AttendanceController {
      */
     @PostMapping("/batch")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ATTENDANCE", operation = "CREATE", description = "批量录入查寝记录")
     public ResponseEntity<Result<Map<String, Object>>> batchCreateAttendance(
             @RequestBody List<Attendance> attendances) {
         User currentUser = getCurrentUser();
@@ -244,6 +247,7 @@ public class AttendanceController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ATTENDANCE", operation = "UPDATE", description = "修改查寝记录")
     public ResponseEntity<Result<Void>> updateAttendance(@PathVariable Long id, @RequestBody Attendance attendance) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
@@ -273,6 +277,7 @@ public class AttendanceController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "ATTENDANCE", operation = "DELETE", description = "删除查寝记录")
     public ResponseEntity<Result<Void>> deleteAttendance(@PathVariable Long id) {
         Attendance attendance = attendanceService.findById(id);
         if (attendance == null) {

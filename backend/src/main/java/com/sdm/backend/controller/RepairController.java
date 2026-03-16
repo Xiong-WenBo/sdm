@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Assignment;
 import com.sdm.backend.entity.Repair;
@@ -118,6 +119,7 @@ public class RepairController {
 
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
+    @Log(module = "REPAIR", operation = "CREATE", description = "提交报修")
     public ResponseEntity<Result<Long>> submitRepair(@RequestBody Repair repair) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
@@ -147,6 +149,7 @@ public class RepairController {
 
     @PutMapping("/{id}/handle")
     @PreAuthorize("hasRole('DORM_ADMIN') or hasRole('SUPER_ADMIN')")
+    @Log(module = "REPAIR", operation = "UPDATE", description = "处理报修")
     public ResponseEntity<Result<Void>> handleRepair(
             @PathVariable Long id,
             @RequestParam String status,
@@ -172,6 +175,7 @@ public class RepairController {
 
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('STUDENT')")
+    @Log(module = "REPAIR", operation = "UPDATE", description = "取消报修")
     public ResponseEntity<Result<Void>> cancelRepair(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
@@ -195,6 +199,7 @@ public class RepairController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "REPAIR", operation = "DELETE", description = "删除报修记录")
     public ResponseEntity<Result<Void>> deleteRepair(@PathVariable Long id) {
         repairService.deleteById(id);
         return ResponseEntity.ok(Result.success(null, "删除成功"));

@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Building;
 import com.sdm.backend.entity.Room;
@@ -105,6 +106,7 @@ public class RoomController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ROOM", operation = "CREATE", description = "新增房间")
     public ResponseEntity<Result<Void>> createRoom(@RequestBody Room room) {
         User currentUser = getCurrentUser();
         
@@ -134,6 +136,7 @@ public class RoomController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ROOM", operation = "UPDATE", description = "修改房间信息")
     public ResponseEntity<Result<Void>> updateRoom(@PathVariable Long id, @RequestBody Room room) {
         User currentUser = getCurrentUser();
         
@@ -163,6 +166,7 @@ public class RoomController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ROOM", operation = "DELETE", description = "删除房间")
     public ResponseEntity<Result<Void>> deleteRoom(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         

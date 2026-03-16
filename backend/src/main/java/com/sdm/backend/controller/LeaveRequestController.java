@@ -1,5 +1,6 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.annotation.Log;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Building;
 import com.sdm.backend.entity.LeaveRequest;
@@ -132,6 +133,7 @@ public class LeaveRequestController {
 
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
+    @Log(module = "LEAVE", operation = "CREATE", description = "提交请假申请")
     public ResponseEntity<Result<Long>> submitLeave(@RequestBody LeaveRequest leaveRequest) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
@@ -149,6 +151,7 @@ public class LeaveRequestController {
 
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasRole('COUNSELOR')")
+    @Log(module = "LEAVE", operation = "UPDATE", description = "审批请假申请")
     public ResponseEntity<Result<Void>> approveLeave(
             @PathVariable Long id,
             @RequestParam String status,
@@ -171,6 +174,7 @@ public class LeaveRequestController {
 
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('STUDENT')")
+    @Log(module = "LEAVE", operation = "UPDATE", description = "取消请假申请")
     public ResponseEntity<Result<Void>> cancelLeave(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
@@ -194,6 +198,7 @@ public class LeaveRequestController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "LEAVE", operation = "DELETE", description = "删除请假记录")
     public ResponseEntity<Result<Void>> deleteLeave(@PathVariable Long id) {
         leaveRequestService.deleteById(id);
         return ResponseEntity.ok(Result.success(null, "删除成功"));
