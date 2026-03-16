@@ -60,15 +60,12 @@
             </el-table>
 
             <!-- 分页 -->
-            <el-pagination
-                v-model:current-page="pagination.page"
+            <Pagination
+                v-model="pagination.page"
                 v-model:page-size="pagination.size"
                 :total="pagination.total"
-                :page-sizes="[10, 20, 50, 100]"
-                layout="total, sizes, prev, pager, next, jumper"
                 @size-change="handleSizeChange"
                 @current-change="handlePageChange"
-                style="margin-top: 20px; justify-content: flex-end"
             />
         </el-card>
 
@@ -164,6 +161,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Download, UploadFilled } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
+import Pagination from '@/components/Pagination.vue'
 
 const loading = ref(false)
 const submitting = ref(false)
