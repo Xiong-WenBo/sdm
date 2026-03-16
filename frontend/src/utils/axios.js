@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 import router from '@/router'
 
 // 创建 axios 实例
@@ -31,6 +31,16 @@ instance.interceptors.request.use(
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`
         }
+        
+        // 如果配置了 showLoading，显示全局 loading
+        if (config.showLoading) {
+            config.loadingInstance = ElLoading.service({
+                lock: true,
+                text: config.loadingText || '加载中...',
+                background: 'rgba(0, 0, 0, 0.7)'
+            })
+        }
+        
         return config
     },
     error => {
@@ -46,6 +56,11 @@ instance.interceptors.response.use(
         // 如果是 blob 类型（文件下载），直接返回
         if (response.config.responseType === 'blob') {
             return response
+        }
+        
+        // 关闭 loading
+        if (response.config.loadingInstance) {
+            response.config.loadingInstance.close()
         }
         
         const res = response.data
@@ -96,6 +111,11 @@ instance.interceptors.response.use(
         
         console.error('HTTP 错误:', error)
         ElMessage.error(message)
+        // 关闭 loading
+        if (error.config && error.config.loadingInstance) {
+            error.config.loadingInstance.close()
+        }
+        
         return Promise.reject(error)
     }
 )

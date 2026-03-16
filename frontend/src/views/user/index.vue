@@ -37,7 +37,10 @@
             </el-form>
 
             <!-- 用户列表 -->
-            <el-table :data="userList" v-loading="loading" border stripe style="width: 100%">
+        <el-table :data="userList" v-loading="loading" element-loading-text="加载中..." border stripe style="width: 100%">
+            <template #empty>
+                <el-empty description="暂无用户数据" />
+            </template>
                 <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column prop="username" label="用户名" width="150" />
                 <el-table-column prop="realName" label="真实姓名" width="120" />
@@ -160,6 +163,7 @@ import { Plus } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
 import { Role, RoleName } from '@/utils/constants'
 import Pagination from '@/components/Pagination.vue'
+import TableSkeleton from '@/components/TableSkeleton.vue'
 
 const loading = ref(false)
 const submitting = ref(false)

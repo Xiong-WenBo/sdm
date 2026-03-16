@@ -37,7 +37,10 @@
             </el-form>
 
             <!-- 房间列表 -->
-            <el-table :data="roomList" v-loading="loading" border stripe style="width: 100%">
+            <el-table :data="roomList" v-loading="loading" element-loading-text="加载中..." border stripe style="width: 100%">
+                <template #empty>
+                    <el-empty description="暂无房间数据" />
+                </template>
                 <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column prop="buildingName" label="楼栋" width="150" />
                 <el-table-column prop="roomNumber" label="房间号" width="120" />

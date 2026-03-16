@@ -23,7 +23,10 @@
             </el-form>
 
             <!-- 楼栋列表 -->
-            <el-table :data="buildingList" v-loading="loading" border stripe style="width: 100%">
+            <el-table :data="buildingList" v-loading="loading" element-loading-text="加载中..." border stripe style="width: 100%">
+                <template #empty>
+                    <el-empty description="暂无楼栋数据" />
+                </template>
                 <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column prop="name" label="楼栋名称" width="200" />
                 <el-table-column prop="address" label="地理位置" width="200" />

@@ -36,7 +36,10 @@
             </el-form>
 
             <!-- 学生列表 -->
-            <el-table :data="studentList" v-loading="loading" border stripe style="width: 100%">
+            <el-table :data="studentList" v-loading="loading" element-loading-text="加载中..." border stripe style="width: 100%">
+                <template #empty>
+                    <el-empty description="暂无学生数据" />
+                </template>
                 <el-table-column prop="id" label="ID" width="80" />
                 <el-table-column prop="studentNumber" label="学号" width="150" />
                 <el-table-column prop="realName" label="姓名" width="120" />
