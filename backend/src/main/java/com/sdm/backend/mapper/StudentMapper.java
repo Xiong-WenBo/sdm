@@ -45,4 +45,9 @@ public interface StudentMapper {
     List<Long> findStudentsOnLeave(@Param("studentIds") List<Long> studentIds,
                                    @Param("startTime") java.time.LocalDateTime startTime,
                                    @Param("endTime") java.time.LocalDateTime endTime);
+    
+    /**
+     * 根据辅导员 ID 查询学生列表
+     */
+    List<Student> findByCounselorId(@Param("counselorId") Long counselorId);
 }

@@ -81,18 +81,22 @@ public class RoomService {
     }
 
     public int countByBuildingId(Long buildingId) {
-        return roomMapper.countByBuildingId(buildingId);
+        List<Room> rooms = roomMapper.findByBuildingId(buildingId);
+        return rooms.size();
     }
 
     public int countOccupiedByBuildingId(Long buildingId) {
-        return roomMapper.countOccupiedByBuildingId(buildingId);
+        List<Room> rooms = roomMapper.findByBuildingId(buildingId);
+        return (int) rooms.stream().filter(r -> r.getCurrentOccupancy() != null && r.getCurrentOccupancy() > 0).count();
     }
 
     public int countOccupancyByBuildingId(Long buildingId) {
-        return roomMapper.countOccupancyByBuildingId(buildingId);
+        List<Room> rooms = roomMapper.findByBuildingId(buildingId);
+        return rooms.stream().mapToInt(r -> r.getCurrentOccupancy() != null ? r.getCurrentOccupancy() : 0).sum();
     }
 
     public int countTotalOccupancy() {
-        return roomMapper.countTotalOccupancy();
+        List<Room> rooms = roomMapper.findAll();
+        return rooms.stream().mapToInt(r -> r.getCurrentOccupancy() != null ? r.getCurrentOccupancy() : 0).sum();
     }
 }

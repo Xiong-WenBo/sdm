@@ -55,4 +55,14 @@ public interface AttendanceMapper {
      * 查询班级学生列表（用于辅导员查寝）
      */
     List<Attendance> findStudentsByCounselor(@Param("counselorId") Long counselorId);
+    
+    /**
+     * 根据日期查询查寝记录
+     */
+    List<Attendance> findByDate(@Param("checkDate") LocalDate checkDate);
+    
+    /**
+     * 根据学生 ID 查询查寝记录
+     */
+    List<Attendance> findByStudentId(@Param("studentId") Long studentId);
 }

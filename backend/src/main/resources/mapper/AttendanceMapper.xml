@@ -176,6 +176,46 @@
         ORDER BY s.class_name, s.student_number
     </select>
 
+    <select id="findByDate" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as checker_name
+        FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.checker_id = u2.id
+        WHERE a.check_date = #{checkDate}
+        ORDER BY a.check_time DESC, s.student_number
+    </select>
+
+    <select id="findByStudentId" resultMap="BaseResultMap">
+        SELECT 
+            a.*,
+            s.student_number,
+            u.real_name as student_name,
+            s.class_name,
+            r.room_number,
+            b.name as building_name,
+            u2.real_name as checker_name
+        FROM attendance a
+        LEFT JOIN student s ON a.student_id = s.id
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN assignment asgn ON s.id = asgn.student_id AND asgn.status = 'ACTIVE'
+        LEFT JOIN room r ON asgn.room_id = r.id
+        LEFT JOIN building b ON r.building_id = b.id
+        LEFT JOIN user u2 ON a.checker_id = u2.id
+        WHERE a.student_id = #{studentId}
+        ORDER BY a.check_date DESC, a.check_time DESC
+    </select>
+
     <insert id="insert" parameterType="com.sdm.backend.entity.Attendance" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO attendance (student_id, check_date, check_time, status, remarks, checker_id)
         VALUES (#{studentId}, #{checkDate}, #{checkTime}, #{status}, #{remarks}, #{checkerId})

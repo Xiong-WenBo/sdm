@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class DashboardService {
@@ -101,16 +102,19 @@ public class DashboardService {
         double occupancyRate = rooms.size() > 0 ? (double) occupiedRooms / rooms.size() * 100 : 0;
         stats.put("occupancyRate", Math.round(occupancyRate * 100.0) / 100.0);
         
-        // 今日统计
+        // 今日统计 - 通过楼栋 ID 查询本楼栋学生
         LocalDate today = LocalDate.now();
+        List<Assignment> assignments = assignmentMapper.findByBuildingId(buildingId);
+        List<Long> studentIds = assignments.stream().map(Assignment::getStudentId).toList();
+        
         List<Attendance> todayAttendance = attendanceMapper.findByDate(today);
         long buildingAttendance = todayAttendance.stream()
-            .filter(a -> buildingId.equals(a.getBuildingId()))
+            .filter(a -> studentIds.contains(a.getStudentId()))
             .count();
         stats.put("todayAttendance", buildingAttendance);
         
         long buildingAbsent = todayAttendance.stream()
-            .filter(a -> buildingId.equals(a.getBuildingId()) && "ABSENT".equals(a.getStatus()))
+            .filter(a -> studentIds.contains(a.getStudentId()) && "ABSENT".equals(a.getStatus()))
             .count();
         stats.put("todayAbsent", buildingAbsent);
         
