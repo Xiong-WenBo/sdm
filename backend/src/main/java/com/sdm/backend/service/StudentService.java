@@ -137,6 +137,16 @@ public class StudentService {
     }
 
     /**
+     * 根据学生 ID 查询辅导员 ID
+     * @param studentId 学生 ID
+     * @return 辅导员 ID
+     */
+    public Long getCounselorIdByStudentId(Long studentId) {
+        Student student = studentMapper.findById(studentId);
+        return student != null ? student.getCounselorId() : null;
+    }
+
+    /**
      * 查询在指定日期有请假申请的学生 ID 列表
      * @param studentIds 学生 ID 列表
      * @param date 日期

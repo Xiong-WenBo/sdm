@@ -13,7 +13,17 @@ public interface MessageMapper {
     List<Message> findByUserIdAndStatus(@Param("userId") Long userId, 
                                         @Param("status") String status);
     
+    List<Message> findByUserIdAndCategory(@Param("userId") Long userId, 
+                                          @Param("category") String category);
+    
+    List<Message> findByUserIdWithFilters(@Param("userId") Long userId,
+                                         @Param("status") String status,
+                                         @Param("category") String category,
+                                         @Param("type") String type);
+    
     int countUnread(@Param("userId") Long userId);
+    
+    int countByCategory(@Param("userId") Long userId, @Param("category") String category);
     
     Message findById(@Param("id") Long id);
     
@@ -25,5 +35,9 @@ public interface MessageMapper {
     
     int markAsRead(@Param("id") Long id);
     
+    int markAllAsRead(@Param("userId") Long userId);
+    
     int deleteByUserId(@Param("userId") Long userId);
+    
+    int batchInsert(@Param("list") List<Message> messages);
 }

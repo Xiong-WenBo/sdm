@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sdm.backend.mapper.MessageTemplateMapper">
+    <resultMap id="BaseResultMap" type="com.sdm.backend.entity.MessageTemplate">
+        <id column="id" property="id"/>
+        <result column="template_code" property="templateCode"/>
+        <result column="template_name" property="templateName"/>
+        <result column="title_template" property="titleTemplate"/>
+        <result column="content_template" property="contentTemplate"/>
+        <result column="type" property="type"/>
+        <result column="category" property="category"/>
+        <result column="enabled" property="enabled"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="BaseResultMap">
+        SELECT * FROM message_template ORDER BY type, category
+    </select>
+
+    <select id="findByEnabled" resultMap="BaseResultMap">
+        SELECT * FROM message_template WHERE enabled = #{enabled} ORDER BY type, category
+    </select>
+
+    <select id="findByType" resultMap="BaseResultMap">
+        SELECT * FROM message_template WHERE type = #{type} ORDER BY category
+    </select>
+
+    <select id="findByTemplateCode" resultMap="BaseResultMap">
+        SELECT * FROM message_template WHERE template_code = #{templateCode}
+    </select>
+
+    <select id="findById" resultMap="BaseResultMap">
+        SELECT * FROM message_template WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.sdm.backend.entity.MessageTemplate" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO message_template (template_code, template_name, title_template, content_template, type, category, enabled)
+        VALUES (#{templateCode}, #{templateName}, #{titleTemplate}, #{contentTemplate}, #{type}, #{category}, #{enabled})
+    </insert>
+
+    <update id="update" parameterType="com.sdm.backend.entity.MessageTemplate">
+        UPDATE message_template
+        <set>
+            <if test="templateName != null">template_name = #{templateName},</if>
+            <if test="titleTemplate != null">title_template = #{titleTemplate},</if>
+            <if test="contentTemplate != null">content_template = #{contentTemplate},</if>
+            <if test="type != null">type = #{type},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM message_template WHERE id = #{id}
+    </delete>
+
+    <update id="updateEnabled">
+        UPDATE message_template SET enabled = #{enabled} WHERE id = #{id}
+    </update>
+</mapper>

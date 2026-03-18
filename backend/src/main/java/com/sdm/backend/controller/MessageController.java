@@ -43,20 +43,26 @@ public class MessageController {
     public ResponseEntity<Result<Map<String, Object>>> getMessageList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String status
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String type
     ) {
         User currentUser = getCurrentUser();
         
         List<Message> messages;
-        int total;
-
-        if (status != null && !status.isEmpty()) {
+        
+        // 使用增强的筛选功能
+        if (status != null || category != null || type != null) {
+            messages = messageService.findByUserIdWithFilters(currentUser.getId(), status, category, type);
+        } else if (status != null && !status.isEmpty()) {
             messages = messageService.findByUserIdAndStatus(currentUser.getId(), status);
-            total = messages.size();
+        } else if (category != null && !category.isEmpty()) {
+            messages = messageService.findByUserIdAndCategory(currentUser.getId(), category);
         } else {
             messages = messageService.findByUserId(currentUser.getId());
-            total = messages.size();
         }
+        
+        int total = messages.size();
 
         // 手动分页
         int fromIndex = (page - 1) * size;
@@ -78,6 +84,22 @@ public class MessageController {
         User currentUser = getCurrentUser();
         int count = messageService.countUnread(currentUser.getId());
         return ResponseEntity.ok(Result.success(count));
+    }
+
+    @GetMapping("/unread/count/by-category")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
+    public ResponseEntity<Result<Map<String, Object>>> getUnreadCountByCategory() {
+        User currentUser = getCurrentUser();
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("ATTENDANCE", messageService.countByCategory(currentUser.getId(), "ATTENDANCE"));
+        result.put("REPAIR", messageService.countByCategory(currentUser.getId(), "REPAIR"));
+        result.put("LEAVE", messageService.countByCategory(currentUser.getId(), "LEAVE"));
+        result.put("SYSTEM", messageService.countByCategory(currentUser.getId(), "SYSTEM"));
+        result.put("REPLY", messageService.countByCategory(currentUser.getId(), "REPLY"));
+        result.put("REMINDER", messageService.countByCategory(currentUser.getId(), "REMINDER"));
+        
+        return ResponseEntity.ok(Result.success(result));
     }
 
     @GetMapping("/{id}")
@@ -112,6 +134,15 @@ public class MessageController {
         return ResponseEntity.ok(Result.success(null, "已标记为已读"));
     }
 
+    @PutMapping("/read-all")
+    @Log(module = "MESSAGE", operation = "UPDATE", description = "一键已读全部")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
+    public ResponseEntity<Result<Void>> markAllAsRead() {
+        User currentUser = getCurrentUser();
+        messageService.markAllAsRead(currentUser.getId());
+        return ResponseEntity.ok(Result.success(null, "已标记全部为已读"));
+    }
+
     @DeleteMapping("/{id}")
     @Log(module = "MESSAGE", operation = "DELETE", description = "删除消息")
     public ResponseEntity<Result<Void>> deleteMessage(@PathVariable Long id) {
@@ -127,5 +158,73 @@ public class MessageController {
         
         messageService.deleteById(id);
         return ResponseEntity.ok(Result.success(null, "删除成功"));
+    }
+
+    @PostMapping("/send")
+    @Log(module = "MESSAGE", operation = "CREATE", description = "发送消息")
+    public ResponseEntity<Result<Void>> sendMessage(@RequestBody Map<String, Object> params) {
+        try {
+            User currentUser = getCurrentUser();
+            Long userId = Long.valueOf(params.get("userId").toString());
+            String title = (String) params.get("title");
+            String content = (String) params.get("content");
+            String type = (String) params.get("type");
+            String category = (String) params.getOrDefault("category", "SYSTEM");
+            String relatedType = (String) params.get("relatedType");
+            Long relatedId = relatedType != null ? Long.valueOf(params.get("relatedId").toString()) : null;
+
+            messageService.sendBusinessNotification(
+                userId, currentUser.getId(), type, category, title, content, relatedType, relatedId
+            );
+
+            return ResponseEntity.ok(Result.success(null, "发送成功"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Result.error(500, "发送失败：" + e.getMessage()));
+        }
+    }
+
+    /**
+     * 发送广播通知（仅超管可用）
+     */
+    @PostMapping("/broadcast")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "MESSAGE", operation = "BROADCAST", description = "发送通知广播")
+    public ResponseEntity<Result<Void>> sendBroadcast(@RequestBody Map<String, Object> params) {
+        try {
+            User currentUser = getCurrentUser();
+            String targetRole = (String) params.get("targetRole");
+            String title = (String) params.get("title");
+            String content = (String) params.get("content");
+            String category = (String) params.getOrDefault("category", "SYSTEM");
+
+            List<User> targetUsers;
+            if ("ALL".equals(targetRole)) {
+                // 发送给所有人
+                targetUsers = userService.findAll();
+            } else {
+                // 发送给特定角色
+                targetUsers = userService.findByRole(targetRole);
+            }
+
+            // 批量发送
+            int sent = 0;
+            for (User user : targetUsers) {
+                messageService.sendBusinessNotification(
+                    user.getId(), 
+                    currentUser.getId(), 
+                    "SYSTEM", 
+                    category, 
+                    title, 
+                    content, 
+                    null, 
+                    null
+                );
+                sent++;
+            }
+
+            return ResponseEntity.ok(Result.success(null, "广播发送成功，共发送 " + sent + " 条消息"));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Result.error(500, "发送失败：" + e.getMessage()));
+        }
     }
 }

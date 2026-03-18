@@ -11,6 +11,7 @@ import com.sdm.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -68,9 +69,20 @@ public class UserController {
 
     @GetMapping("/current")
     public ResponseEntity<Result<User>> getCurrentUser() {
-        // 从 token 中获取用户名
-        // 这里简化处理，实际应该从 SecurityContext 获取
-        return ResponseEntity.ok(Result.error(500, "请实现从 token 获取当前用户"));
+        // 从 SecurityContext 中获取当前登录用户
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        
+        if (principal instanceof String) {
+            String username = (String) principal;
+            User user = userService.findByUsername(username);
+            if (user != null) {
+                // 不返回密码
+                user.setPassword(null);
+                return ResponseEntity.ok(Result.success(user));
+            }
+        }
+        
+        return ResponseEntity.ok(Result.error(401, "未登录"));
     }
 
     @PostMapping

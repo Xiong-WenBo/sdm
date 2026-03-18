@@ -88,4 +88,8 @@
     <delete id="deleteById">
         DELETE FROM user WHERE id = #{id}
     </delete>
+
+    <select id="findByRole" resultMap="BaseResultMap">
+        SELECT * FROM user WHERE role = #{role} AND status = 1 ORDER BY created_at DESC
+    </select>
 </mapper>

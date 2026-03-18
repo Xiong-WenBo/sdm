@@ -2,8 +2,8 @@
 -- 宿舍管理系统数据库结构
 -- Dormitory Management System Database Schema
 -- 
--- 版本：v0.6.0
--- 最后更新：2026-03-16
+-- 版本：v0.8.0
+-- 最后更新：2026-03-18
 -- 数据库：MySQL 5.7+
 -- 字符集：utf8mb4
 -- ============================================================
@@ -206,26 +206,71 @@ CREATE TABLE `leave_request` (
 -- ============================================================
 -- 系统消息通知表，支持查寝、报修、请假等通知
 -- 支持站内信功能，记录已读/未读状态
+-- 增强：支持私信、提醒、广播等多种消息分类
 -- ============================================================
 CREATE TABLE `message` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '消息 ID，主键',
   `user_id` BIGINT NOT NULL COMMENT '接收用户 ID',
+  `sender_id` BIGINT DEFAULT NULL COMMENT '发送者 ID',
   `title` VARCHAR(200) NOT NULL COMMENT '消息标题',
   `content` TEXT NOT NULL COMMENT '消息内容',
   `type` VARCHAR(50) NOT NULL DEFAULT 'SYSTEM' COMMENT '消息类型：ATTENDANCE(查寝), REPAIR(报修), LEAVE(请假), SYSTEM(系统)',
+  `category` VARCHAR(50) DEFAULT 'SYSTEM' COMMENT '消息分类：SYSTEM(系统通知), REPLY(回复), REMINDER(提醒)',
+  `related_type` VARCHAR(50) DEFAULT NULL COMMENT '关联业务类型：REPAIR, LEAVE, ATTENDANCE 等',
+  `related_id` BIGINT DEFAULT NULL COMMENT '关联业务 ID',
   `status` VARCHAR(20) NOT NULL DEFAULT 'UNREAD' COMMENT '状态：UNREAD(未读), READ(已读)',
   `send_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
   `read_time` DATETIME DEFAULT NULL COMMENT '阅读时间',
   PRIMARY KEY (`id`),
   KEY `idx_user_id` (`user_id`),
+  KEY `idx_sender_id` (`sender_id`),
   KEY `idx_status` (`status`),
   KEY `idx_type` (`type`),
+  KEY `idx_category` (`category`),
+  KEY `idx_related` (`related_type`, `related_id`),
   KEY `idx_send_time` (`send_time`),
-  CONSTRAINT `fk_message_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_message_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_message_sender` FOREIGN KEY (`sender_id`) REFERENCES `user`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息通知表';
 
 -- ============================================================
--- 10. 登录日志表 (login_log)
+-- 10. 消息模板表 (message_template)
+-- ============================================================
+-- 存储消息模板，支持自动发送业务通知
+-- ============================================================
+CREATE TABLE `message_template` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '模板 ID',
+  `template_code` VARCHAR(50) NOT NULL UNIQUE COMMENT '模板编码（如：REPAIR_APPROVED）',
+  `template_name` VARCHAR(100) NOT NULL COMMENT '模板名称',
+  `title_template` VARCHAR(200) NOT NULL COMMENT '标题模板（支持占位符 {name}, {date} 等）',
+  `content_template` TEXT NOT NULL COMMENT '内容模板（支持占位符）',
+  `type` VARCHAR(50) NOT NULL COMMENT '消息类型：ATTENDANCE, REPAIR, LEAVE, SYSTEM',
+  `category` VARCHAR(50) DEFAULT 'SYSTEM' COMMENT '消息分类：SYSTEM(系统通知), REPLY(回复), REMINDER(提醒)',
+  `enabled` TINYINT DEFAULT 1 COMMENT '是否启用：0-禁用，1-启用',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_template_code` (`template_code`),
+  KEY `idx_type` (`type`),
+  KEY `idx_enabled` (`enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息模板表';
+
+-- 初始化消息模板数据
+INSERT INTO `message_template` (`template_code`, `template_name`, `title_template`, `content_template`, `type`, `category`, `enabled`) VALUES
+('ATTENDANCE_ABSENT', '查寝 - 未归通知', '【查寝通知】{date} 晚归/未归提醒', '同学你好，\n\n在{date}的晚查寝中，你被记录为{status}。\n\n查寝时间：{checkTime}\n情况说明：{remarks}\n\n请及时向辅导员说明情况。', 'ATTENDANCE', 'SYSTEM', 1),
+('ATTENDANCE_LATE', '查寝 - 晚归通知', '【查寝通知】{date} 晚归提醒', '同学你好，\n\n在{date}的晚查寝中，你被记录为晚归。\n\n查寝时间：{checkTime}\n宿舍楼栋：{buildingName}\n宿舍房间：{roomNumber}\n\n请遵守宿舍管理规定。', 'ATTENDANCE', 'SYSTEM', 1),
+('REPAIR_SUBMITTED', '报修 - 提交成功通知', '【报修通知】您的报修申请已提交', '同学你好，\n\n你的报修申请已提交成功。\n\n报修标题：{title}\n报修类别：{category}\n优先级：{priority}\n提交时间：{submitTime}\n\n宿管人员会尽快处理，请耐心等待。', 'REPAIR', 'SYSTEM', 1),
+('REPAIR_APPROVED', '报修 - 审批通过通知', '【报修通知】您的报修申请已通过', '同学你好，\n\n你的报修申请已通过审核。\n\n报修标题：{title}\n处理人员：{adminName}\n处理意见：{handleNote}\n\n工作人员将尽快上门维修。', 'REPAIR', 'REPLY', 1),
+('REPAIR_REJECTED', '报修 - 审批拒绝通知', '【报修通知】您的报修申请未通过', '同学你好，\n\n很抱歉，你的报修申请未通过审核。\n\n报修标题：{title}\n拒绝原因：{handleNote}\n\n如有疑问，请联系宿管。', 'REPAIR', 'REPLY', 1),
+('REPAIR_COMPLETED', '报修 - 维修完成通知', '【报修通知】您的报修已完成', '同学你好，\n\n你的报修已完成处理。\n\n报修标题：{title}\n处理人员：{adminName}\n处理意见：{handleNote}\n\n如有问题，请及时反馈。', 'REPAIR', 'SYSTEM', 1),
+('LEAVE_SUBMITTED', '请假 - 提交成功通知', '【请假通知】您的请假申请已提交', '同学你好，\n\n你的请假申请已提交给辅导员审批。\n\n请假类型：{type}\n请假时间：{startTime} 至 {endTime}\n请假事由：{reason}\n\n请等待辅导员审批。', 'LEAVE', 'SYSTEM', 1),
+('LEAVE_APPROVED', '请假 - 审批通过通知', '【请假通知】您的请假申请已通过', '同学你好，\n\n你的请假申请已通过审批。\n\n请假类型：{type}\n请假时间：{startTime} 至 {endTime}\n辅导员意见：{approveNote}\n\n祝你假期愉快！', 'LEAVE', 'REPLY', 1),
+('LEAVE_REJECTED', '请假 - 审批拒绝通知', '【请假通知】您的请假申请未通过', '同学你好，\n\n很抱歉，你的请假申请未通过审批。\n\n请假类型：{type}\n请假时间：{startTime} 至 {endTime}\n拒绝原因：{approveNote}\n\n如有疑问，请联系辅导员。', 'LEAVE', 'REPLY', 1),
+('SYSTEM_ANNOUNCEMENT', '系统 - 公告通知', '【系统公告】{title}', '亲爱的用户：\n\n{content}\n\n发布时间：{publishTime}\n\n请知悉。', 'SYSTEM', 'SYSTEM', 1),
+('SYSTEM_WELCOME', '系统 - 欢迎通知', '【系统通知】欢迎使用宿舍管理系统', '亲爱的{realName}：\n\n欢迎使用宿舍管理系统！\n\n您的角色是：{role}\n用户名：{username}\n\n如有任何问题，请联系系统管理员。', 'SYSTEM', 'SYSTEM', 1);
+
+-- ============================================================
+-- 11. 登录日志表 (login_log)
 -- ============================================================
 -- 记录所有用户的登录行为，支持安全审计
 -- ============================================================
@@ -248,7 +293,7 @@ CREATE TABLE IF NOT EXISTS `login_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录日志表';
 
 -- ============================================================
--- 11. 操作日志表 (operation_log)
+-- 12. 操作日志表 (operation_log)
 -- ============================================================
 -- 记录所有用户的操作行为，支持安全审计和追溯
 -- ============================================================
@@ -290,9 +335,10 @@ CREATE TABLE IF NOT EXISTS `operation_log` (
 -- 6. attendance 表关联 student 和 checker（检查人）
 -- 7. repair 表关联 student、room 和 admin（处理人）
 -- 8. leave_request 表关联 student 和 approver（审批人）
--- 9. message 表关联 user（接收者）
--- 10. login_log 表记录用户登录行为（安全审计）
--- 11. operation_log 表记录用户操作行为（操作追溯）
+-- 9. message 表关联 user（接收者）和 sender（发送者）
+-- 10. message_template 表存储消息模板
+-- 11. login_log 表记录用户登录行为（安全审计）
+-- 12. operation_log 表记录用户操作行为（操作追溯）
 -- ============================================================
 
 -- 恢复外键检查

@@ -38,6 +38,9 @@ public class NotificationController {
     @Autowired
     private MessageService messageService;
 
+    @Autowired
+    private AssignmentService assignmentService;
+
     /**
      * 获取当前登录用户
      */
@@ -267,20 +270,32 @@ public class NotificationController {
         // 按楼栋分组
         Map<Long, List<Attendance>> byBuilding = new HashMap<>();
         for (Attendance student : students) {
-            // 这里简化处理，假设每个学生的 buildingName 相同
-            // 实际应该通过 assignment 表查询楼栋
-            Long buildingId = 1L; // TODO: 获取实际楼栋 ID
-            byBuilding.computeIfAbsent(buildingId, k -> new ArrayList<>()).add(student);
+            // 通过 assignment 表查询学生所在的楼栋
+            Long buildingId = getBuildingIdByStudentId(student.getStudentId());
+            if (buildingId != null) {
+                byBuilding.computeIfAbsent(buildingId, k -> new ArrayList<>()).add(student);
+            }
         }
         
         int notified = 0;
         for (Map.Entry<Long, List<Attendance>> entry : byBuilding.entrySet()) {
-            Building building = buildingService.findById(entry.getKey());
+            Long buildingId = entry.getKey();
+            Building building = buildingService.findById(buildingId);
+            
             if (building != null && building.getAdminId() != null) {
                 String title = String.format("【查寝通知】%s 有 %d 名学生未归", 
                     building.getName(), entry.getValue().size());
                 String content = buildAbsentStudentContent(entry.getValue(), date);
-                messageService.sendAttendanceNotification(building.getAdminId(), title, content);
+                messageService.sendBusinessNotification(
+                    building.getAdminId(),
+                    null,
+                    "ATTENDANCE",
+                    "SYSTEM",
+                    title,
+                    content,
+                    "ATTENDANCE",
+                    null
+                );
                 notified++;
             }
         }
@@ -288,28 +303,54 @@ public class NotificationController {
     }
 
     /**
+     * 根据学生 ID 查询所在楼栋 ID
+     */
+    private Long getBuildingIdByStudentId(Long studentId) {
+        // 通过 assignment 表查询学生当前所在的楼栋
+        List<com.sdm.backend.entity.Assignment> assignments = assignmentService.findByStudentId(studentId);
+        if (!assignments.isEmpty()) {
+            // 返回第一个分配的楼栋（通常学生只住一个房间）
+            return assignments.get(0).getRoomId() != null ? 
+                   assignmentService.findBuildingIdByRoomId(assignments.get(0).getRoomId()) : null;
+        }
+        return null;
+    }
+
+    /**
      * 通知辅导员（本班级有学生未归）
      */
     private int notifyCounselorsOfAbsentStudents(List<Attendance> students, LocalDate date) {
-        // 按班级分组
-        Map<String, List<Attendance>> byClass = new HashMap<>();
+        // 按辅导员 ID 分组（而不是按班级）
+        Map<Long, List<Attendance>> byCounselor = new HashMap<>();
+        
         for (Attendance student : students) {
-            byClass.computeIfAbsent(student.getClassName(), k -> new ArrayList<>()).add(student);
+            // 通过 student_id 查询学生的辅导员 ID
+            Long counselorId = studentService.getCounselorIdByStudentId(student.getStudentId());
+            
+            if (counselorId != null) {
+                byCounselor.computeIfAbsent(counselorId, k -> new ArrayList<>()).add(student);
+            }
         }
         
         int notified = 0;
-        // 给每个班级的辅导员发送通知
-        for (Map.Entry<String, List<Attendance>> entry : byClass.entrySet()) {
-            // TODO: 根据班级找到辅导员 ID
-            // 这里简化处理，假设辅导员 ID 已知
-            // 实际应该查询 student 表中该班级所有学生的 counselor_id
-            Long counselorId = 4L; // 示例：辅导员 ID
+        // 给每个辅导员发送通知（包含该辅导员负责的所有未归学生）
+        for (Map.Entry<Long, List<Attendance>> entry : byCounselor.entrySet()) {
+            Long counselorId = entry.getKey();
+            List<Attendance> counselorStudents = entry.getValue();
             
             if (counselorId != null) {
-                String title = String.format("【查寝通知】%s 有 %d 名学生未归", 
-                    entry.getKey(), entry.getValue().size());
-                String content = buildAbsentStudentContent(entry.getValue(), date);
-                messageService.sendAttendanceNotification(counselorId, title, content);
+                String title = String.format("【查寝通知】你有 %d 名学生未归", counselorStudents.size());
+                String content = buildAbsentStudentContent(counselorStudents, date);
+                messageService.sendBusinessNotification(
+                    counselorId, 
+                    null, 
+                    "ATTENDANCE", 
+                    "SYSTEM", 
+                    title, 
+                    content, 
+                    "ATTENDANCE", 
+                    null
+                );
                 notified++;
             }
         }

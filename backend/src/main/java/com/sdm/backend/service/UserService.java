@@ -70,4 +70,8 @@ public class UserService {
     public int deleteById(Long id) {
         return userMapper.deleteById(id);
     }
+
+    public List<User> findByRole(String role) {
+        return userMapper.findByRole(role);
+    }
 }

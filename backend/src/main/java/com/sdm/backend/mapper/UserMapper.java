@@ -33,4 +33,6 @@ public interface UserMapper {
     int deleteById(@Param("id") Long id);
     
     User findById(@Param("id") Long id);
+    
+    List<User> findByRole(@Param("role") String role);
 }

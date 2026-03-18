@@ -127,4 +127,17 @@ public class AssignmentService {
     public Assignment findActiveByStudentId(Long studentId) {
         return assignmentMapper.findActiveByStudentId(studentId);
     }
+
+    /**
+     * 根据房间 ID 查询楼栋 ID
+     * @param roomId 房间 ID
+     * @return 楼栋 ID
+     */
+    public Long findBuildingIdByRoomId(Long roomId) {
+        if (roomId == null) {
+            return null;
+        }
+        com.sdm.backend.entity.Room room = roomService.findById(roomId);
+        return room != null ? room.getBuildingId() : null;
+    }
 }
