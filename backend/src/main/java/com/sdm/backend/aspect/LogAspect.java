@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sdm.backend.annotation.Log;
 import com.sdm.backend.entity.OperationLog;
 import com.sdm.backend.service.OperationLogService;
+import com.sdm.backend.service.UserService;
 import com.sdm.backend.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -32,6 +33,9 @@ public class LogAspect {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private UserService userService;
+
     @Around("@annotation(com.sdm.backend.annotation.Log)")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
@@ -50,6 +54,12 @@ public class LogAspect {
                     operationLog.setUserId(userId);
                     operationLog.setUsername(username);
                     operationLog.setRole(role);
+                    if (username != null) {
+                        var user = userService.findAnyByUsername(username);
+                        if (user != null) {
+                            operationLog.setRealName(user.getRealName());
+                        }
+                    }
                 } catch (Exception e) {
                 }
             }
