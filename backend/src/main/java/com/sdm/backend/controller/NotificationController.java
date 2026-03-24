@@ -86,17 +86,17 @@ public class NotificationController {
         if (dormAdminBuildingId != null) {
             // 宿管：查询本楼栋今日未归学生
             absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, dormAdminBuildingId, checkDate, "EVENING", "ABSENT"
+                1, 1000, null, dormAdminBuildingId, checkDate, "EVENING", "ABSENT", null
             );
         } else if ("COUNSELOR".equals(currentUser.getRole())) {
             // 辅导员：查询本班级今日未归学生
             absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, currentUser.getId(), null, checkDate, "EVENING", "ABSENT"
+                1, 1000, null, null, checkDate, "EVENING", "ABSENT", currentUser.getId()
             );
         } else {
             // 超管：查询所有今日未归学生
             absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, null, checkDate, "EVENING", "ABSENT"
+                1, 1000, null, null, checkDate, "EVENING", "ABSENT", null
             );
         }
         
@@ -211,17 +211,17 @@ public class NotificationController {
         if (buildingId != null) {
             // 宿管：查询本楼栋
             absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, buildingId, checkDate, "EVENING", "ABSENT"
+                1, 1000, null, buildingId, checkDate, "EVENING", "ABSENT", null
             );
         } else if (counselorId != null) {
             // 辅导员：查询本班级
             absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, counselorId, null, checkDate, "EVENING", "ABSENT"
+                1, 1000, null, null, checkDate, "EVENING", "ABSENT", counselorId
             );
         } else {
             // 超管：查询全部
             absentStudents = attendanceService.findByPageAndFilters(
-                1, 1000, null, null, checkDate, "EVENING", "ABSENT"
+                1, 1000, null, null, checkDate, "EVENING", "ABSENT", null
             );
         }
         

@@ -88,6 +88,9 @@
             <if test="status != null and status != ''">
                 AND a.status = #{status}
             </if>
+            <if test="counselorId != null">
+                AND s.counselor_id = #{counselorId}
+            </if>
         </where>
         ORDER BY a.check_date DESC, a.check_time DESC
         LIMIT #{offset}, #{limit}
@@ -117,6 +120,9 @@
             </if>
             <if test="status != null and status != ''">
                 AND a.status = #{status}
+            </if>
+            <if test="counselorId != null">
+                AND s.counselor_id = #{counselorId}
             </if>
         </where>
     </select>

@@ -97,6 +97,21 @@
             @close="handleCheckInDialogClose"
         >
             <el-form :model="checkInForm" label-width="100px">
+                <el-form-item v-if="userRole !== 'COUNSELOR'" label="楼栋">
+                    <el-select
+                        v-model="checkInForm.buildingId"
+                        placeholder="选择楼栋"
+                        style="width: 100%"
+                        @change="loadStudents"
+                    >
+                        <el-option
+                            v-for="building in buildingList"
+                            :key="building.id"
+                            :label="building.name"
+                            :value="building.id"
+                        />
+                    </el-select>
+                </el-form-item>
                 <el-form-item label="查寝日期">
                     <el-date-picker
                         v-model="checkInForm.checkDate"
@@ -214,10 +229,12 @@ const pagination = reactive({
 })
 
 const studentList = ref([])
+const buildingList = ref([])
 
 const checkInForm = reactive({
     checkDate: new Date().toISOString().split('T')[0],
-    checkTime: 'EVENING'
+    checkTime: 'EVENING',
+    buildingId: null
 })
 
 const editForm = reactive({
@@ -272,22 +289,36 @@ const loadAttendanceList = async () => {
     }
 }
 
+const loadAccessibleBuildings = async () => {
+    if (userRole === 'COUNSELOR') {
+        buildingList.value = []
+        return
+    }
+
+    try {
+        const res = await axios.get('/api/attendance/buildings')
+        buildingList.value = res.data || []
+        if (!checkInForm.buildingId && buildingList.value.length > 0) {
+            checkInForm.buildingId = buildingList.value[0].id
+        }
+    } catch (error) {
+        console.error('加载可选楼栋失败:', error)
+        buildingList.value = []
+    }
+}
+
 const loadStudents = async () => {
     try {
-        // 根据角色加载不同楼栋或班级的学生
-        let url = '/api/attendance/students/building/1' // 默认楼栋 1
-        
-        if (userRole === 'DORM_ADMIN') {
-            // 宿管需要传入楼栋 ID，这里简化处理，实际应该从后端获取
-            url = '/api/attendance/students/building/1'
-        } else if (userRole === 'COUNSELOR') {
-            url = '/api/attendance/students/counselor'
-        } else {
-            // 超管默认加载所有楼栋（这里简化为楼栋 1）
-            url = '/api/attendance/students/building/1'
+        const params = {}
+        if (userRole !== 'COUNSELOR') {
+            if (!checkInForm.buildingId) {
+                studentList.value = []
+                return
+            }
+            params.buildingId = checkInForm.buildingId
         }
-        
-        const res = await axios.get(url)
+
+        const res = await axios.get('/api/attendance/students', { params })
         studentList.value = res.data.map(s => ({
             ...s,
             status: 'NORMAL',
@@ -444,7 +475,8 @@ const handlePageChange = () => {
     loadAttendanceList()
 }
 
-onMounted(() => {
+onMounted(async () => {
+    await loadAccessibleBuildings()
     loadAttendanceList()
 })
 </script>

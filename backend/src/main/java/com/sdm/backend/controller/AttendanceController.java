@@ -13,7 +13,15 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -33,21 +41,14 @@ public class AttendanceController {
     @Autowired
     private UserService userService;
 
-    /**
-     * 获取当前登录用户
-     */
     private User getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return userService.findByUsername(username);
         }
         return null;
     }
 
-    /**
-     * 获取当前宿管管理的楼栋 ID
-     */
     private Long getDormAdminBuildingId(User user) {
         if (user == null || !"DORM_ADMIN".equals(user.getRole())) {
             return null;
@@ -69,21 +70,17 @@ public class AttendanceController {
     ) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
+        Long counselorId = "COUNSELOR".equals(currentUser.getRole()) ? currentUser.getId() : null;
 
-        // 如果是宿管，强制使用其管理的楼栋 ID
         if (dormAdminBuildingId != null) {
             buildingId = dormAdminBuildingId;
         }
 
-        // 如果是辅导员，需要过滤本班级学生（通过 studentId 参数）
-        // TODO: 根据辅导员 ID 自动设置 studentId 列表
-
         List<Attendance> attendances;
         int total;
-
-        if (studentId != null || buildingId != null || checkDate != null || checkTime != null || status != null) {
-            attendances = attendanceService.findByPageAndFilters(page, size, studentId, buildingId, checkDate, checkTime, status);
-            total = attendanceService.countByFilters(studentId, buildingId, checkDate, checkTime, status);
+        if (studentId != null || buildingId != null || checkDate != null || checkTime != null || status != null || counselorId != null) {
+            attendances = attendanceService.findByPageAndFilters(page, size, studentId, buildingId, checkDate, checkTime, status, counselorId);
+            total = attendanceService.countByFilters(studentId, buildingId, checkDate, checkTime, status, counselorId);
         } else {
             attendances = attendanceService.findByPage(page, size);
             total = attendanceService.countAll();
@@ -94,97 +91,84 @@ public class AttendanceController {
         result.put("total", total);
         result.put("page", page);
         result.put("size", size);
-
         return ResponseEntity.ok(Result.success(result));
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Attendance>> getAttendanceById(@PathVariable Long id) {
         Attendance attendance = attendanceService.findById(id);
         if (attendance == null) {
-            return ResponseEntity.ok(Result.error(404, "查寝记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Attendance record not found"));
         }
         return ResponseEntity.ok(Result.success(attendance));
     }
 
-    /**
-     * 获取楼栋学生列表（用于查寝录入）
-     */
-    @GetMapping("/students/building/{buildingId}")
+    @GetMapping("/buildings")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    public ResponseEntity<Result<List<Attendance>>> getStudentsInBuilding(@PathVariable Long buildingId) {
+    public ResponseEntity<Result<List<Building>>> getAccessibleBuildings() {
+        User currentUser = getCurrentUser();
+        return ResponseEntity.ok(Result.success(
+                attendanceService.findAccessibleBuildings(currentUser.getRole(), currentUser.getId())
+        ));
+    }
+
+    @GetMapping("/students")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
+    public ResponseEntity<Result<List<Attendance>>> getStudentsForCheckIn(
+            @RequestParam(required = false) Long buildingId
+    ) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
 
-        // 如果是宿管，验证楼栋权限
-        if (dormAdminBuildingId != null && !dormAdminBuildingId.equals(buildingId)) {
-            return ResponseEntity.ok(Result.error(403, "宿管只能查看自己管理的楼栋"));
+        if (dormAdminBuildingId != null) {
+            buildingId = dormAdminBuildingId;
         }
 
-        List<Attendance> students = attendanceService.findStudentsInBuilding(buildingId);
-        return ResponseEntity.ok(Result.success(students));
-    }
-
-    /**
-     * 获取班级学生列表（用于辅导员查寝）
-     */
-    @GetMapping("/students/counselor")
-    @PreAuthorize("hasRole('COUNSELOR')")
-    public ResponseEntity<Result<List<Attendance>>> getStudentsByCounselor() {
-        User currentUser = getCurrentUser();
-        if (currentUser == null) {
-            return ResponseEntity.ok(Result.error(401, "未登录"));
+        if (!"COUNSELOR".equals(currentUser.getRole()) && buildingId == null) {
+            return ResponseEntity.ok(Result.error(400, "Building is required"));
         }
 
-        List<Attendance> students = attendanceService.findStudentsByCounselor(currentUser.getId());
+        List<Attendance> students = attendanceService.findStudentsForCheckIn(currentUser.getRole(), currentUser.getId(), buildingId);
         return ResponseEntity.ok(Result.success(students));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ATTENDANCE", operation = "CREATE", description = "录入查寝记录")
+    @Log(module = "ATTENDANCE", operation = "CREATE", description = "Create attendance record")
     public ResponseEntity<Result<Void>> createAttendance(@RequestBody Attendance attendance) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
 
-        // 如果是宿管，验证楼栋权限
         if (dormAdminBuildingId != null) {
-            // 验证学生是否在本楼栋
             Attendance studentInfo = attendanceService.findStudentsInBuilding(dormAdminBuildingId)
-                .stream()
-                .filter(s -> s.getStudentId().equals(attendance.getStudentId()))
-                .findFirst()
-                .orElse(null);
-            
+                    .stream()
+                    .filter(s -> s.getStudentId().equals(attendance.getStudentId()))
+                    .findFirst()
+                    .orElse(null);
             if (studentInfo == null) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能录入本楼栋学生"));
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         }
 
-        // 检查是否已存在
         Attendance existing = attendanceService.findByStudentAndDate(
-            attendance.getStudentId(), 
-            attendance.getCheckDate(), 
-            attendance.getCheckTime()
+                attendance.getStudentId(),
+                attendance.getCheckDate(),
+                attendance.getCheckTime()
         );
-        
         if (existing != null) {
-            return ResponseEntity.ok(Result.error(400, "该学生该时段的查寝记录已存在"));
+            return ResponseEntity.ok(Result.error(400, "Attendance record already exists"));
         }
 
         attendance.setCheckerId(currentUser.getId());
         attendanceService.insert(attendance);
-        return ResponseEntity.ok(Result.success(null, "查寝记录创建成功"));
+        return ResponseEntity.ok(Result.success(null, "Attendance created successfully"));
     }
 
-    /**
-     * 批量录入查寝记录
-     */
     @PostMapping("/batch")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ATTENDANCE", operation = "CREATE", description = "批量录入查寝记录")
-    public ResponseEntity<Result<Map<String, Object>>> batchCreateAttendance(
-            @RequestBody List<Attendance> attendances) {
+    @Log(module = "ATTENDANCE", operation = "CREATE", description = "Batch create attendance records")
+    public ResponseEntity<Result<Map<String, Object>>> batchCreateAttendance(@RequestBody List<Attendance> attendances) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
 
@@ -194,41 +178,35 @@ public class AttendanceController {
 
         for (Attendance attendance : attendances) {
             try {
-                // 如果是宿管，验证楼栋权限
                 if (dormAdminBuildingId != null) {
                     Attendance studentInfo = attendanceService.findStudentsInBuilding(dormAdminBuildingId)
-                        .stream()
-                        .filter(s -> s.getStudentId().equals(attendance.getStudentId()))
-                        .findFirst()
-                        .orElse(null);
-                    
+                            .stream()
+                            .filter(s -> s.getStudentId().equals(attendance.getStudentId()))
+                            .findFirst()
+                            .orElse(null);
                     if (studentInfo == null) {
-                        errors.add("学生 ID " + attendance.getStudentId() + " 不在本楼栋");
+                        errors.add("Student " + attendance.getStudentId() + " is out of scope");
                         errorCount++;
                         continue;
                     }
                 }
 
                 attendance.setCheckerId(currentUser.getId());
-                
-                // 检查是否已存在
                 Attendance existing = attendanceService.findByStudentAndDate(
-                    attendance.getStudentId(), 
-                    attendance.getCheckDate(), 
-                    attendance.getCheckTime()
+                        attendance.getStudentId(),
+                        attendance.getCheckDate(),
+                        attendance.getCheckTime()
                 );
-                
+
                 if (existing != null) {
-                    // 更新已有记录
                     attendance.setId(existing.getId());
                     attendanceService.update(attendance);
                 } else {
-                    // 插入新记录
                     attendanceService.insert(attendance);
                 }
                 successCount++;
             } catch (Exception e) {
-                errors.add("学生 ID " + attendance.getStudentId() + ": " + e.getMessage());
+                errors.add("Student " + attendance.getStudentId() + ": " + e.getMessage());
                 errorCount++;
             }
         }
@@ -237,59 +215,52 @@ public class AttendanceController {
         result.put("successCount", successCount);
         result.put("errorCount", errorCount);
         result.put("errors", errors);
-
-        if (errorCount == 0) {
-            return ResponseEntity.ok(Result.success(result, "批量录入成功 " + successCount + " 条记录"));
-        } else {
-            return ResponseEntity.ok(Result.success(result, "部分成功：" + successCount + " 条，失败：" + errorCount + " 条"));
-        }
+        String message = errorCount == 0
+                ? "Batch attendance saved successfully"
+                : "Batch attendance partially completed";
+        return ResponseEntity.ok(Result.success(result, message));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ATTENDANCE", operation = "UPDATE", description = "修改查寝记录")
+    @Log(module = "ATTENDANCE", operation = "UPDATE", description = "Update attendance record")
     public ResponseEntity<Result<Void>> updateAttendance(@PathVariable Long id, @RequestBody Attendance attendance) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
 
         Attendance existing = attendanceService.findById(id);
         if (existing == null) {
-            return ResponseEntity.ok(Result.error(404, "查寝记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Attendance record not found"));
         }
 
-        // 如果是宿管，验证楼栋权限
         if (dormAdminBuildingId != null) {
             Attendance studentInfo = attendanceService.findStudentsInBuilding(dormAdminBuildingId)
-                .stream()
-                .filter(s -> s.getStudentId().equals(existing.getStudentId()))
-                .findFirst()
-                .orElse(null);
-            
+                    .stream()
+                    .filter(s -> s.getStudentId().equals(existing.getStudentId()))
+                    .findFirst()
+                    .orElse(null);
             if (studentInfo == null) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能修改本楼栋学生"));
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         }
 
         attendance.setId(id);
         attendanceService.update(attendance);
-        return ResponseEntity.ok(Result.success(null, "查寝记录更新成功"));
+        return ResponseEntity.ok(Result.success(null, "Attendance updated successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "ATTENDANCE", operation = "DELETE", description = "删除查寝记录")
+    @Log(module = "ATTENDANCE", operation = "DELETE", description = "Delete attendance record")
     public ResponseEntity<Result<Void>> deleteAttendance(@PathVariable Long id) {
         Attendance attendance = attendanceService.findById(id);
         if (attendance == null) {
-            return ResponseEntity.ok(Result.error(404, "查寝记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Attendance record not found"));
         }
         attendanceService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "查寝记录删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Attendance deleted successfully"));
     }
 
-    /**
-     * 查询当日未归学生（按权限筛选）
-     */
     @GetMapping("/absent/today")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<List<Attendance>>> getAbsentStudentsToday(
@@ -297,27 +268,22 @@ public class AttendanceController {
     ) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
+        Long counselorId = "COUNSELOR".equals(currentUser.getRole()) ? currentUser.getId() : null;
 
-        // 如果没有指定日期，默认为今天
         if (checkDate == null) {
             checkDate = LocalDate.now();
         }
 
-        List<Attendance> absentStudents;
-
-        // 根据角色筛选
-        if (dormAdminBuildingId != null) {
-            // 宿管：查询本楼栋今日未归学生
-            absentStudents = attendanceService.findByPageAndFilters(1, 1000, null, dormAdminBuildingId, checkDate, "EVENING", "ABSENT");
-        } else if ("COUNSELOR".equals(currentUser.getRole())) {
-            // 辅导员：查询本班级今日未归学生（通过 counselor_id 筛选）
-            // 这里简化处理，实际应该通过 student.counselor_id 关联查询
-            absentStudents = attendanceService.findByPageAndFilters(1, 1000, null, null, checkDate, "EVENING", "ABSENT");
-            // TODO: 根据辅导员 ID 过滤
-        } else {
-            // 超管：查询所有今日未归学生
-            absentStudents = attendanceService.findByPageAndFilters(1, 1000, null, null, checkDate, "EVENING", "ABSENT");
-        }
+        List<Attendance> absentStudents = attendanceService.findByPageAndFilters(
+                1,
+                1000,
+                null,
+                dormAdminBuildingId,
+                checkDate,
+                "EVENING",
+                "ABSENT",
+                counselorId
+        );
 
         return ResponseEntity.ok(Result.success(absentStudents));
     }

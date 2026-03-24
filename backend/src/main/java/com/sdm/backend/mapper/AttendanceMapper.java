@@ -19,7 +19,8 @@ public interface AttendanceMapper {
                                          @Param("buildingId") Long buildingId,
                                          @Param("checkDate") LocalDate checkDate,
                                          @Param("checkTime") String checkTime,
-                                         @Param("status") String status);
+                                         @Param("status") String status,
+                                         @Param("counselorId") Long counselorId);
     
     int countAll();
     
@@ -27,7 +28,8 @@ public interface AttendanceMapper {
                       @Param("buildingId") Long buildingId,
                       @Param("checkDate") LocalDate checkDate,
                       @Param("checkTime") String checkTime,
-                      @Param("status") String status);
+                      @Param("status") String status,
+                      @Param("counselorId") Long counselorId);
     
     Attendance findById(@Param("id") Long id);
     
