@@ -10,8 +10,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,13 +35,9 @@ public class MessageController {
     @Autowired
     private UserService userService;
 
-    /**
-     * 获取当前登录用户
-     */
     private User getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return userService.findByUsername(username);
         }
         return null;
@@ -48,33 +53,15 @@ public class MessageController {
             @RequestParam(required = false) String type
     ) {
         User currentUser = getCurrentUser();
-        
-        List<Message> messages;
-        
-        // 使用增强的筛选功能
-        if (status != null || category != null || type != null) {
-            messages = messageService.findByUserIdWithFilters(currentUser.getId(), status, category, type);
-        } else if (status != null && !status.isEmpty()) {
-            messages = messageService.findByUserIdAndStatus(currentUser.getId(), status);
-        } else if (category != null && !category.isEmpty()) {
-            messages = messageService.findByUserIdAndCategory(currentUser.getId(), category);
-        } else {
-            messages = messageService.findByUserId(currentUser.getId());
-        }
-        
-        int total = messages.size();
-
-        // 手动分页
-        int fromIndex = (page - 1) * size;
-        int toIndex = Math.min(fromIndex + size, messages.size());
-        List<Message> pagedMessages = messages.subList(fromIndex, toIndex);
+        List<Message> messages = hasAnyFilter(status, category, type)
+                ? messageService.findByUserIdWithFilters(currentUser.getId(), status, category, type)
+                : messageService.findByUserId(currentUser.getId());
 
         Map<String, Object> result = new HashMap<>();
-        result.put("list", pagedMessages);
-        result.put("total", total);
+        result.put("list", paginate(messages, page, size));
+        result.put("total", messages.size());
         result.put("page", page);
         result.put("size", size);
-
         return ResponseEntity.ok(Result.success(result));
     }
 
@@ -90,7 +77,7 @@ public class MessageController {
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
     public ResponseEntity<Result<Map<String, Object>>> getUnreadCountByCategory() {
         User currentUser = getCurrentUser();
-        
+
         Map<String, Object> result = new HashMap<>();
         result.put("ATTENDANCE", messageService.countByCategory(currentUser.getId(), "ATTENDANCE"));
         result.put("REPAIR", messageService.countByCategory(currentUser.getId(), "REPAIR"));
@@ -98,7 +85,7 @@ public class MessageController {
         result.put("SYSTEM", messageService.countByCategory(currentUser.getId(), "SYSTEM"));
         result.put("REPLY", messageService.countByCategory(currentUser.getId(), "REPLY"));
         result.put("REMINDER", messageService.countByCategory(currentUser.getId(), "REMINDER"));
-        
+
         return ResponseEntity.ok(Result.success(result));
     }
 
@@ -106,62 +93,62 @@ public class MessageController {
     public ResponseEntity<Result<Message>> getMessageById(@PathVariable Long id) {
         Message message = messageService.findById(id);
         if (message == null) {
-            return ResponseEntity.ok(Result.error(404, "消息不存在"));
+            return ResponseEntity.ok(Result.error(404, "Message not found"));
         }
-        
+
         User currentUser = getCurrentUser();
         if (!message.getUserId().equals(currentUser.getId()) && !"SUPER_ADMIN".equals(currentUser.getRole())) {
-            return ResponseEntity.ok(Result.error(403, "无权查看此消息"));
+            return ResponseEntity.ok(Result.error(403, "Access denied"));
         }
-        
+
         return ResponseEntity.ok(Result.success(message));
     }
 
     @PutMapping("/{id}/read")
-    @Log(module = "MESSAGE", operation = "UPDATE", description = "标记消息为已读")
+    @Log(module = "MESSAGE", operation = "UPDATE", description = "Mark message as read")
     public ResponseEntity<Result<Void>> markAsRead(@PathVariable Long id) {
         Message message = messageService.findById(id);
         if (message == null) {
-            return ResponseEntity.ok(Result.error(404, "消息不存在"));
+            return ResponseEntity.ok(Result.error(404, "Message not found"));
         }
-        
+
         User currentUser = getCurrentUser();
         if (!message.getUserId().equals(currentUser.getId()) && !"SUPER_ADMIN".equals(currentUser.getRole())) {
-            return ResponseEntity.ok(Result.error(403, "无权操作此消息"));
+            return ResponseEntity.ok(Result.error(403, "Access denied"));
         }
-        
+
         messageService.markAsRead(id);
-        return ResponseEntity.ok(Result.success(null, "已标记为已读"));
+        return ResponseEntity.ok(Result.success(null, "Marked as read"));
     }
 
     @PutMapping("/read-all")
-    @Log(module = "MESSAGE", operation = "UPDATE", description = "一键已读全部")
+    @Log(module = "MESSAGE", operation = "UPDATE", description = "Mark all messages as read")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
     public ResponseEntity<Result<Void>> markAllAsRead() {
         User currentUser = getCurrentUser();
         messageService.markAllAsRead(currentUser.getId());
-        return ResponseEntity.ok(Result.success(null, "已标记全部为已读"));
+        return ResponseEntity.ok(Result.success(null, "All messages marked as read"));
     }
 
     @DeleteMapping("/{id}")
-    @Log(module = "MESSAGE", operation = "DELETE", description = "删除消息")
+    @Log(module = "MESSAGE", operation = "DELETE", description = "Delete message")
     public ResponseEntity<Result<Void>> deleteMessage(@PathVariable Long id) {
         Message message = messageService.findById(id);
         if (message == null) {
-            return ResponseEntity.ok(Result.error(404, "消息不存在"));
+            return ResponseEntity.ok(Result.error(404, "Message not found"));
         }
-        
+
         User currentUser = getCurrentUser();
         if (!message.getUserId().equals(currentUser.getId()) && !"SUPER_ADMIN".equals(currentUser.getRole())) {
-            return ResponseEntity.ok(Result.error(403, "无权删除此消息"));
+            return ResponseEntity.ok(Result.error(403, "Access denied"));
         }
-        
+
         messageService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Deleted successfully"));
     }
 
     @PostMapping("/send")
-    @Log(module = "MESSAGE", operation = "CREATE", description = "发送消息")
+    @Log(module = "MESSAGE", operation = "CREATE", description = "Send message")
     public ResponseEntity<Result<Void>> sendMessage(@RequestBody Map<String, Object> params) {
         try {
             User currentUser = getCurrentUser();
@@ -171,24 +158,21 @@ public class MessageController {
             String type = (String) params.get("type");
             String category = (String) params.getOrDefault("category", "SYSTEM");
             String relatedType = (String) params.get("relatedType");
-            Long relatedId = relatedType != null ? Long.valueOf(params.get("relatedId").toString()) : null;
+            Long relatedId = parseOptionalLong(params.get("relatedId"));
 
             messageService.sendBusinessNotification(
-                userId, currentUser.getId(), type, category, title, content, relatedType, relatedId
+                    userId, currentUser.getId(), type, category, title, content, relatedType, relatedId
             );
 
-            return ResponseEntity.ok(Result.success(null, "发送成功"));
+            return ResponseEntity.ok(Result.success(null, "Sent successfully"));
         } catch (Exception e) {
-            return ResponseEntity.ok(Result.error(500, "发送失败：" + e.getMessage()));
+            return ResponseEntity.ok(Result.error(500, "Send failed: " + e.getMessage()));
         }
     }
 
-    /**
-     * 发送广播通知（仅超管可用）
-     */
     @PostMapping("/broadcast")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "MESSAGE", operation = "BROADCAST", description = "发送通知广播")
+    @Log(module = "MESSAGE", operation = "BROADCAST", description = "Send broadcast")
     public ResponseEntity<Result<Void>> sendBroadcast(@RequestBody Map<String, Object> params) {
         try {
             User currentUser = getCurrentUser();
@@ -197,34 +181,63 @@ public class MessageController {
             String content = (String) params.get("content");
             String category = (String) params.getOrDefault("category", "SYSTEM");
 
-            List<User> targetUsers;
-            if ("ALL".equals(targetRole)) {
-                // 发送给所有人
-                targetUsers = userService.findAll();
-            } else {
-                // 发送给特定角色
-                targetUsers = userService.findByRole(targetRole);
-            }
+            List<User> targetUsers = "ALL".equals(targetRole)
+                    ? userService.findAll()
+                    : userService.findByRole(targetRole);
 
-            // 批量发送
             int sent = 0;
             for (User user : targetUsers) {
                 messageService.sendBusinessNotification(
-                    user.getId(), 
-                    currentUser.getId(), 
-                    "SYSTEM", 
-                    category, 
-                    title, 
-                    content, 
-                    null, 
-                    null
+                        user.getId(),
+                        currentUser.getId(),
+                        "SYSTEM",
+                        category,
+                        title,
+                        content,
+                        null,
+                        null
                 );
                 sent++;
             }
 
-            return ResponseEntity.ok(Result.success(null, "广播发送成功，共发送 " + sent + " 条消息"));
+            return ResponseEntity.ok(Result.success(null, "Broadcast sent to " + sent + " users"));
         } catch (Exception e) {
-            return ResponseEntity.ok(Result.error(500, "发送失败：" + e.getMessage()));
+            return ResponseEntity.ok(Result.error(500, "Send failed: " + e.getMessage()));
         }
+    }
+
+    private boolean hasAnyFilter(String status, String category, String type) {
+        return hasText(status) || hasText(category) || hasText(type);
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private List<Message> paginate(List<Message> messages, int page, int size) {
+        if (messages == null || messages.isEmpty() || page < 1 || size < 1) {
+            return Collections.emptyList();
+        }
+
+        int fromIndex = (page - 1) * size;
+        if (fromIndex >= messages.size()) {
+            return Collections.emptyList();
+        }
+
+        int toIndex = Math.min(fromIndex + size, messages.size());
+        return messages.subList(fromIndex, toIndex);
+    }
+
+    private Long parseOptionalLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        String stringValue = value.toString();
+        if (stringValue.isBlank()) {
+            return null;
+        }
+
+        return Long.valueOf(stringValue);
     }
 }
