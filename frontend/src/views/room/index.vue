@@ -11,10 +11,16 @@
                 </div>
             </template>
 
-            <!-- 搜索栏 -->
             <el-form :inline="true" :model="searchForm" class="search-form">
                 <el-form-item label="楼栋">
-                    <el-select v-model="searchForm.buildingId" placeholder="请选择楼栋" clearable filterable style="width: 200px">
+                    <el-select
+                        v-model="searchForm.buildingId"
+                        placeholder="请选择楼栋"
+                        clearable
+                        filterable
+                        style="width: 200px"
+                        :disabled="userRole === 'DORM_ADMIN'"
+                    >
                         <el-option
                             v-for="building in buildingList"
                             :key="building.id"
@@ -24,7 +30,12 @@
                     </el-select>
                 </el-form-item>
                 <el-form-item label="状态">
-                    <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 150px">
+                    <el-select
+                        v-model="searchForm.status"
+                        placeholder="请选择状态"
+                        clearable
+                        style="width: 150px"
+                    >
                         <el-option label="可住" value="AVAILABLE" />
                         <el-option label="已满" value="FULL" />
                         <el-option label="维修" value="MAINTENANCE" />
@@ -36,8 +47,14 @@
                 </el-form-item>
             </el-form>
 
-            <!-- 房间列表 -->
-            <el-table :data="roomList" v-loading="loading" element-loading-text="加载中..." border stripe style="width: 100%">
+            <el-table
+                :data="roomList"
+                v-loading="loading"
+                element-loading-text="加载中..."
+                border
+                stripe
+                style="width: 100%"
+            >
                 <template #empty>
                     <el-empty description="暂无房间数据" />
                 </template>
@@ -67,12 +84,18 @@
                 <el-table-column label="操作" fixed="right" width="200">
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-                        <el-button type="danger" size="small" @click="handleDelete(row)" v-if="userRole === 'SUPER_ADMIN'">删除</el-button>
+                        <el-button
+                            v-if="userRole === 'SUPER_ADMIN'"
+                            type="danger"
+                            size="small"
+                            @click="handleDelete(row)"
+                        >
+                            删除
+                        </el-button>
                     </template>
                 </el-table-column>
             </el-table>
 
-            <!-- 分页 -->
             <Pagination
                 v-model="pagination.page"
                 v-model:page-size="pagination.size"
@@ -82,7 +105,6 @@
             />
         </el-card>
 
-        <!-- 新增/编辑房间弹窗 -->
         <el-dialog
             v-model="dialogVisible"
             :title="dialogTitle"
@@ -115,11 +137,11 @@
                         type="info"
                         show-icon
                         style="margin-top: 10px"
-                        description="宿管只能在自己管理的楼栋添加房间"
+                        description="宿管只能在自己负责的楼栋管理房间。"
                     />
                 </el-form-item>
                 <el-form-item label="房间号" prop="roomNumber">
-                    <el-input v-model="roomForm.roomNumber" placeholder="请输入房间号（如：101）" />
+                    <el-input v-model="roomForm.roomNumber" placeholder="请输入房间号，例如 101" />
                 </el-form-item>
                 <el-form-item label="楼层" prop="floor">
                     <el-input-number v-model="roomForm.floor" :min="1" :max="100" style="width: 100%" />
@@ -129,8 +151,8 @@
                 </el-form-item>
                 <el-form-item label="性别限制" prop="gender">
                     <el-radio-group v-model="roomForm.gender">
-                        <el-radio label="MALE">男寝</el-radio>
-                        <el-radio label="FEMALE">女寝</el-radio>
+                        <el-radio label="MALE">男</el-radio>
+                        <el-radio label="FEMALE">女</el-radio>
                         <el-radio label="UNISEX">不限</el-radio>
                     </el-radio-group>
                 </el-form-item>
@@ -151,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
@@ -179,7 +201,7 @@ const pagination = reactive({
 })
 
 const buildingList = ref([])
-const userBuildingId = ref(null) // 宿管管理的楼栋 ID
+const userBuildingId = ref(null)
 
 const roomForm = reactive({
     id: null,
@@ -209,36 +231,36 @@ const roomFormRules = {
 
 const getGenderType = (gender) => {
     const typeMap = {
-        'MALE': 'primary',
-        'FEMALE': 'danger',
-        'UNISEX': 'info'
+        MALE: 'primary',
+        FEMALE: 'danger',
+        UNISEX: 'info'
     }
     return typeMap[gender] || 'info'
 }
 
 const getGenderText = (gender) => {
     const textMap = {
-        'MALE': '男寝',
-        'FEMALE': '女寝',
-        'UNISEX': '不限'
+        MALE: '男',
+        FEMALE: '女',
+        UNISEX: '不限'
     }
     return textMap[gender] || gender
 }
 
 const getStatusType = (status) => {
     const typeMap = {
-        'AVAILABLE': 'success',
-        'FULL': 'warning',
-        'MAINTENANCE': 'danger'
+        AVAILABLE: 'success',
+        FULL: 'warning',
+        MAINTENANCE: 'danger'
     }
     return typeMap[status] || 'info'
 }
 
 const getStatusText = (status) => {
     const textMap = {
-        'AVAILABLE': '可住',
-        'FULL': '已满',
-        'MAINTENANCE': '维修'
+        AVAILABLE: '可住',
+        FULL: '已满',
+        MAINTENANCE: '维修'
     }
     return textMap[status] || status
 }
@@ -265,21 +287,12 @@ const loadRoomList = async () => {
 
 const loadBuildingList = async () => {
     try {
-        const res = await axios.get('/api/building/list', {
-            params: { page: 1, size: 100 }
-        })
-        buildingList.value = res.data.list
-        
-        // 如果是宿管，获取其管理的楼栋 ID
-        if (userRole === 'DORM_ADMIN') {
-            // 从 building 列表中查找管理员是当前用户的楼栋
-            const username = localStorage.getItem('username')
-            const myBuilding = buildingList.value.find(b => b.adminName === username || b.adminName === localStorage.getItem('realName'))
-            if (myBuilding) {
-                userBuildingId.value = myBuilding.id
-                // 自动选中楼栋
-                searchForm.buildingId = myBuilding.id
-            }
+        const res = await axios.get('/api/building/accessible')
+        buildingList.value = res.data
+
+        if (userRole === 'DORM_ADMIN' && buildingList.value.length > 0) {
+            userBuildingId.value = buildingList.value[0].id
+            searchForm.buildingId = buildingList.value[0].id
         }
     } catch (error) {
         console.error('加载楼栋列表失败:', error)
@@ -292,7 +305,7 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-    searchForm.buildingId = null
+    searchForm.buildingId = userRole === 'DORM_ADMIN' ? userBuildingId.value : null
     searchForm.status = ''
     handleSearch()
 }
@@ -300,12 +313,11 @@ const handleReset = () => {
 const handleAdd = () => {
     dialogTitle.value = '新增房间'
     isEdit.value = false
-    
-    // 如果是宿管且有管理的楼栋，自动选中
+
     if (userRole === 'DORM_ADMIN' && userBuildingId.value) {
         roomForm.buildingId = userBuildingId.value
     }
-    
+
     dialogVisible.value = true
 }
 
@@ -324,11 +336,15 @@ const handleEdit = (row) => {
 }
 
 const handleDelete = (row) => {
-    ElMessageBox.confirm('确定要删除该房间吗？删除后该房间的住宿分配记录也将被删除。', '警告', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-    }).then(async () => {
+    ElMessageBox.confirm(
+        '确定要删除该房间吗？删除后该房间的住宿分配记录也将被删除。',
+        '警告',
+        {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+        }
+    ).then(async () => {
         try {
             await axios.delete(`/api/room/${row.id}`)
             ElMessage.success('删除成功')
@@ -367,7 +383,7 @@ const handleSubmit = async () => {
 const handleDialogClose = () => {
     roomFormRef.value?.resetFields()
     roomForm.id = null
-    roomForm.buildingId = null
+    roomForm.buildingId = userRole === 'DORM_ADMIN' ? userBuildingId.value : null
     roomForm.roomNumber = ''
     roomForm.floor = 1
     roomForm.capacity = 4
@@ -384,9 +400,9 @@ const handlePageChange = () => {
     loadRoomList()
 }
 
-onMounted(() => {
-    loadBuildingList()
-    loadRoomList()
+onMounted(async () => {
+    await loadBuildingList()
+    await loadRoomList()
 })
 </script>
 

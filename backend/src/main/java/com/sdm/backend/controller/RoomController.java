@@ -12,7 +12,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,21 +39,17 @@ public class RoomController {
     @Autowired
     private UserService userService;
 
-    /**
-     * 获取当前登录用户
-     */
     private User getCurrentUser() {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            return null;
+        }
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return userService.findByUsername(username);
         }
         return null;
     }
 
-    /**
-     * 获取当前宿管管理的楼栋 ID
-     */
     private Long getDormAdminBuildingId(User user) {
         if (user == null || !"DORM_ADMIN".equals(user.getRole())) {
             return null;
@@ -64,7 +68,6 @@ public class RoomController {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
 
-        // 如果是宿管，强制使用其管理的楼栋 ID
         if (dormAdminBuildingId != null) {
             buildingId = dormAdminBuildingId;
         }
@@ -93,102 +96,98 @@ public class RoomController {
     public ResponseEntity<Result<Room>> getRoomById(@PathVariable Long id) {
         Room room = roomService.findById(id);
         if (room == null) {
-            return ResponseEntity.ok(Result.error(404, "房间不存在"));
+            return ResponseEntity.ok(Result.error(404, "Room not found"));
         }
         return ResponseEntity.ok(Result.success(room));
     }
 
     @GetMapping("/building/{buildingId}")
     public ResponseEntity<Result<List<Room>>> getRoomsByBuildingId(@PathVariable Long buildingId) {
-        List<Room> rooms = roomService.findByBuildingId(buildingId);
-        return ResponseEntity.ok(Result.success(rooms));
+        return ResponseEntity.ok(Result.success(roomService.findByBuildingId(buildingId)));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ROOM", operation = "CREATE", description = "新增房间")
+    @Log(module = "ROOM", operation = "CREATE", description = "Create room")
     public ResponseEntity<Result<Void>> createRoom(@RequestBody Room room) {
         User currentUser = getCurrentUser();
-        
-        // 如果是宿管，验证楼栋权限
+
         if (currentUser != null && "DORM_ADMIN".equals(currentUser.getRole())) {
             Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
             if (dormAdminBuildingId == null) {
-                return ResponseEntity.ok(Result.error(403, "宿管未分配楼栋，无法创建房间"));
+                return ResponseEntity.ok(Result.error(403, "Dorm admin has no assigned building"));
             }
             if (room.getBuildingId() != null && !room.getBuildingId().equals(dormAdminBuildingId)) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能在自己管理的楼栋创建房间"));
+                return ResponseEntity.ok(Result.error(403, "Dorm admin can only create rooms in the assigned building"));
             }
-            // 强制设置楼栋 ID 为宿管管理的楼栋
             room.setBuildingId(dormAdminBuildingId);
         }
-        
+
         if (room.getBuildingId() == null) {
-            return ResponseEntity.ok(Result.error(400, "所属楼栋不能为空"));
+            return ResponseEntity.ok(Result.error(400, "Building is required"));
         }
         if (room.getRoomNumber() == null || room.getRoomNumber().isEmpty()) {
-            return ResponseEntity.ok(Result.error(400, "房间号不能为空"));
+            return ResponseEntity.ok(Result.error(400, "Room number is required"));
         }
-        
+
         roomService.insert(room);
-        return ResponseEntity.ok(Result.success(null, "房间创建成功"));
+        return ResponseEntity.ok(Result.success(null, "Room created successfully"));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ROOM", operation = "UPDATE", description = "修改房间信息")
+    @Log(module = "ROOM", operation = "UPDATE", description = "Update room")
     public ResponseEntity<Result<Void>> updateRoom(@PathVariable Long id, @RequestBody Room room) {
         User currentUser = getCurrentUser();
-        
-        // 如果是宿管，验证楼栋权限
+        Room existingRoom = roomService.findById(id);
+
         if (currentUser != null && "DORM_ADMIN".equals(currentUser.getRole())) {
             Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
             if (dormAdminBuildingId == null) {
-                return ResponseEntity.ok(Result.error(403, "宿管未分配楼栋，无法操作"));
+                return ResponseEntity.ok(Result.error(403, "Dorm admin has no assigned building"));
             }
-            
-            // 验证房间是否属于宿管管理的楼栋
-            Room existingRoom = roomService.findById(id);
             if (existingRoom == null || !existingRoom.getBuildingId().equals(dormAdminBuildingId)) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能操作自己管理的楼栋的房间"));
+                return ResponseEntity.ok(Result.error(403, "Dorm admin can only manage rooms in the assigned building"));
             }
         }
-        
-        Room existingRoom = roomService.findById(id);
+
         if (existingRoom == null) {
-            return ResponseEntity.ok(Result.error(404, "房间不存在"));
+            return ResponseEntity.ok(Result.error(404, "Room not found"));
         }
-        
+        if (!roomService.canAccommodate(existingRoom, room.getCapacity())) {
+            return ResponseEntity.ok(Result.error(400, "Room capacity cannot be lower than current occupancy"));
+        }
+
         room.setId(id);
         roomService.update(room);
-        return ResponseEntity.ok(Result.success(null, "房间更新成功"));
+        return ResponseEntity.ok(Result.success(null, "Room updated successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ROOM", operation = "DELETE", description = "删除房间")
+    @Log(module = "ROOM", operation = "DELETE", description = "Delete room")
     public ResponseEntity<Result<Void>> deleteRoom(@PathVariable Long id) {
         User currentUser = getCurrentUser();
-        
-        // 如果是宿管，验证楼栋权限
+        Room room = roomService.findById(id);
+
         if (currentUser != null && "DORM_ADMIN".equals(currentUser.getRole())) {
             Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
             if (dormAdminBuildingId == null) {
-                return ResponseEntity.ok(Result.error(403, "宿管未分配楼栋，无法操作"));
+                return ResponseEntity.ok(Result.error(403, "Dorm admin has no assigned building"));
             }
-            
-            // 验证房间是否属于宿管管理的楼栋
-            Room existingRoom = roomService.findById(id);
-            if (existingRoom == null || !existingRoom.getBuildingId().equals(dormAdminBuildingId)) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能操作自己管理的楼栋的房间"));
+            if (room == null || !room.getBuildingId().equals(dormAdminBuildingId)) {
+                return ResponseEntity.ok(Result.error(403, "Dorm admin can only manage rooms in the assigned building"));
             }
         }
-        
-        Room room = roomService.findById(id);
+
         if (room == null) {
-            return ResponseEntity.ok(Result.error(404, "房间不存在"));
+            return ResponseEntity.ok(Result.error(404, "Room not found"));
         }
+        if (room.getCurrentOccupancy() != null && room.getCurrentOccupancy() > 0) {
+            return ResponseEntity.ok(Result.error(400, "Occupied rooms cannot be deleted"));
+        }
+
         roomService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "房间删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Room deleted successfully"));
     }
 }

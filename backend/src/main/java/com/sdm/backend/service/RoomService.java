@@ -64,6 +64,14 @@ public class RoomService {
         return roomMapper.findByBuildingId(buildingId);
     }
 
+    public boolean canAccommodate(Room room, Integer capacity) {
+        if (room == null || capacity == null) {
+            return false;
+        }
+        int currentOccupancy = room.getCurrentOccupancy() != null ? room.getCurrentOccupancy() : 0;
+        return capacity >= currentOccupancy;
+    }
+
     @Transactional
     public void incrementOccupancy(Long roomId) {
         roomMapper.incrementOccupancy(roomId);
