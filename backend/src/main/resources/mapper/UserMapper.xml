@@ -18,6 +18,10 @@
         SELECT * FROM user WHERE username = #{username} AND status = 1
     </select>
 
+    <select id="findAnyByUsername" resultMap="BaseResultMap">
+        SELECT * FROM user WHERE username = #{username}
+    </select>
+
     <select id="findById" resultMap="BaseResultMap">
         SELECT * FROM user WHERE id = #{id}
     </select>

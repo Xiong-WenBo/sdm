@@ -6,27 +6,53 @@ import com.sdm.backend.dto.CreateUserRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
 import com.sdm.backend.entity.User;
+import com.sdm.backend.service.BuildingService;
 import com.sdm.backend.service.StudentService;
 import com.sdm.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
+
+    private static final Set<String> ALLOWED_ROLES = Set.of("SUPER_ADMIN", "DORM_ADMIN", "COUNSELOR", "STUDENT");
 
     @Autowired
     private UserService userService;
 
     @Autowired
     private StudentService studentService;
+
+    @Autowired
+    private BuildingService buildingService;
+
+    private User getCurrentUser() {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            return null;
+        }
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof String username) {
+            return userService.findByUsername(username);
+        }
+        return null;
+    }
 
     @GetMapping("/list")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -61,148 +87,138 @@ public class UserController {
     public ResponseEntity<Result<User>> getUserById(@PathVariable Long id) {
         User user = userService.findById(id);
         if (user == null) {
-            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+            return ResponseEntity.ok(Result.error(404, "User not found"));
         }
         user.setPassword(null);
         return ResponseEntity.ok(Result.success(user));
     }
 
     @GetMapping("/current")
-    public ResponseEntity<Result<User>> getCurrentUser() {
-        // 从 SecurityContext 中获取当前登录用户
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        
-        if (principal instanceof String) {
-            String username = (String) principal;
-            User user = userService.findByUsername(username);
-            if (user != null) {
-                // 不返回密码
-                user.setPassword(null);
-                return ResponseEntity.ok(Result.success(user));
-            }
+    public ResponseEntity<Result<User>> getCurrentUserProfile() {
+        User user = getCurrentUser();
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(401, "Unauthorized"));
         }
-        
-        return ResponseEntity.ok(Result.error(401, "未登录"));
+        user.setPassword(null);
+        return ResponseEntity.ok(Result.success(user));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "USER", operation = "CREATE", description = "新增用户")
+    @Log(module = "USER", operation = "CREATE", description = "Create user")
     public ResponseEntity<Result<Void>> createUser(@RequestBody CreateUserRequest request) {
-        // 基础验证
         if (request.getUsername() == null || request.getUsername().isEmpty()) {
-            return ResponseEntity.ok(Result.error(400, "用户名不能为空"));
+            return ResponseEntity.ok(Result.error(400, "Username is required"));
         }
         if (request.getPassword() == null || request.getPassword().isEmpty()) {
-            return ResponseEntity.ok(Result.error(400, "密码不能为空"));
+            return ResponseEntity.ok(Result.error(400, "Password is required"));
         }
-        if (userService.findByUsername(request.getUsername()) != null) {
-            return ResponseEntity.ok(Result.error(400, "用户名已存在"));
+        if (request.getRealName() == null || request.getRealName().isEmpty()) {
+            return ResponseEntity.ok(Result.error(400, "Real name is required"));
         }
-        if (request.getRole() == null || request.getRole().isEmpty()) {
-            return ResponseEntity.ok(Result.error(400, "角色不能为空"));
+        if (request.getRole() == null || !ALLOWED_ROLES.contains(request.getRole())) {
+            return ResponseEntity.ok(Result.error(400, "Invalid role"));
         }
-        
-        // 创建用户
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(request.getPassword());
-        user.setRealName(request.getRealName());
-        user.setRole(request.getRole());
-        user.setStatus(request.getStatus() != null ? request.getStatus() : 1);
-        userService.insert(user);
-        
-        // 如果是学生，自动创建 student 记录
+        if (userService.findAnyByUsername(request.getUsername()) != null) {
+            return ResponseEntity.ok(Result.error(400, "Username already exists"));
+        }
+
         if ("STUDENT".equals(request.getRole())) {
-            // 验证学生必填字段
             if (request.getStudentNumber() == null || request.getStudentNumber().isEmpty()) {
-                return ResponseEntity.ok(Result.error(400, "学号不能为空"));
+                return ResponseEntity.ok(Result.error(400, "Student number is required"));
             }
             if (request.getClassName() == null || request.getClassName().isEmpty()) {
-                return ResponseEntity.ok(Result.error(400, "班级不能为空"));
+                return ResponseEntity.ok(Result.error(400, "Class name is required"));
             }
-            
-            // 检查学号是否已存在
             Student existingStudent = studentService.findByStudentNumber(request.getStudentNumber());
             if (existingStudent != null) {
-                return ResponseEntity.ok(Result.error(400, "学号已存在"));
+                return ResponseEntity.ok(Result.error(400, "Student number already exists"));
             }
-            
-            // 创建学生信息
-            Student student = new Student();
-            student.setUserId(user.getId());
-            student.setStudentNumber(request.getStudentNumber());
-            student.setClassName(request.getClassName());
-            student.setMajor(request.getMajor());
-            student.setCounselorId(request.getCounselorId());
-            student.setEnrollmentDate(request.getEnrollmentDate());
-            studentService.createStudent(student);
         }
-        
-        return ResponseEntity.ok(Result.success(null, "用户创建成功"));
+
+        userService.createUserWithOptionalStudent(request);
+        return ResponseEntity.ok(Result.success(null, "User created successfully"));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "USER", operation = "UPDATE", description = "修改用户信息")
+    @Log(module = "USER", operation = "UPDATE", description = "Update user")
     public ResponseEntity<Result<Void>> updateUser(@PathVariable Long id, @RequestBody User user) {
         User existingUser = userService.findById(id);
         if (existingUser == null) {
-            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+            return ResponseEntity.ok(Result.error(404, "User not found"));
         }
-        
-        // 如果修改了用户名，检查是否已存在
+
         if (user.getUsername() != null && !user.getUsername().equals(existingUser.getUsername())) {
-            User usernameExists = userService.findByUsername(user.getUsername());
+            User usernameExists = userService.findAnyByUsername(user.getUsername());
             if (usernameExists != null && !usernameExists.getId().equals(id)) {
-                return ResponseEntity.ok(Result.error(400, "用户名已存在"));
+                return ResponseEntity.ok(Result.error(400, "Username already exists"));
             }
         }
-        
+        if (user.getRole() != null && !ALLOWED_ROLES.contains(user.getRole())) {
+            return ResponseEntity.ok(Result.error(400, "Invalid role"));
+        }
+        if (user.getRole() != null
+                && !user.getRole().equals(existingUser.getRole())
+                && ("STUDENT".equals(existingUser.getRole()) || "STUDENT".equals(user.getRole()))) {
+            return ResponseEntity.ok(Result.error(400, "Student accounts must be managed in the student module"));
+        }
+
         user.setId(id);
         userService.update(user);
-        return ResponseEntity.ok(Result.success(null, "用户更新成功"));
+        return ResponseEntity.ok(Result.success(null, "User updated successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "USER", operation = "DELETE", description = "删除用户")
+    @Log(module = "USER", operation = "DELETE", description = "Delete user")
     public ResponseEntity<Result<Void>> deleteUser(@PathVariable Long id) {
         User user = userService.findById(id);
         if (user == null) {
-            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+            return ResponseEntity.ok(Result.error(404, "User not found"));
         }
+
+        User currentUser = getCurrentUser();
+        if (currentUser != null && id.equals(currentUser.getId())) {
+            return ResponseEntity.ok(Result.error(400, "Cannot delete the current logged-in user"));
+        }
+        if (studentService.findByUserId(id) != null) {
+            return ResponseEntity.ok(Result.error(400, "Student accounts must be deleted in the student module"));
+        }
+        if (buildingService.findByAdminId(id) != null) {
+            return ResponseEntity.ok(Result.error(400, "Dorm admin is still assigned to a building"));
+        }
+        if ("COUNSELOR".equals(user.getRole()) && !studentService.findByCounselorId(id).isEmpty()) {
+            return ResponseEntity.ok(Result.error(400, "Counselor still has assigned students"));
+        }
+
         userService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "用户删除成功"));
+        return ResponseEntity.ok(Result.success(null, "User deleted successfully"));
     }
 
     @PutMapping("/password/{id}")
     public ResponseEntity<Result<Void>> changePassword(@PathVariable Long id, @RequestBody ChangePasswordRequest request) {
         User user = userService.findById(id);
         if (user == null) {
-            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+            return ResponseEntity.ok(Result.error(404, "User not found"));
         }
-
-        // 验证旧密码
         if (!userService.checkPassword(request.getOldPassword(), user.getPassword())) {
-            return ResponseEntity.ok(Result.error(400, "旧密码不正确"));
+            return ResponseEntity.ok(Result.error(400, "Old password is incorrect"));
         }
 
-        // 更新密码
         user.setPassword(request.getNewPassword());
         userService.update(user);
 
-        return ResponseEntity.ok(Result.success(null, "密码修改成功"));
+        return ResponseEntity.ok(Result.success(null, "Password changed successfully"));
     }
 
     @PutMapping("/profile/{id}")
     public ResponseEntity<Result<Void>> updateProfile(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         User user = userService.findById(id);
         if (user == null) {
-            return ResponseEntity.ok(Result.error(404, "用户不存在"));
+            return ResponseEntity.ok(Result.error(404, "User not found"));
         }
 
-        // 只更新允许的字段
         if (updates.containsKey("phone")) {
             user.setPhone((String) updates.get("phone"));
         }
@@ -211,7 +227,6 @@ public class UserController {
         }
 
         userService.update(user);
-
-        return ResponseEntity.ok(Result.success(null, "个人信息更新成功"));
+        return ResponseEntity.ok(Result.success(null, "Profile updated successfully"));
     }
 }

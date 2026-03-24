@@ -9,6 +9,8 @@ import java.util.List;
 @Mapper
 public interface UserMapper {
     User findByUsername(@Param("username") String username);
+
+    User findAnyByUsername(@Param("username") String username);
     
     List<User> findAll();
     
