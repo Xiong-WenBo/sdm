@@ -70,7 +70,9 @@ public class RepairController {
         if ("SUPER_ADMIN".equals(currentUser.getRole())) {
             List<Repair> repairs;
             if (status != null && !status.isEmpty()) {
-                repairs = repairService.findAll();
+                repairs = repairService.findAll().stream()
+                    .filter(repair -> status.equals(repair.getStatus()))
+                    .toList();
             } else {
                 repairs = repairService.findAll();
             }

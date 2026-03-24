@@ -12,7 +12,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -30,9 +38,11 @@ public class LeaveRequestController {
     private BuildingService buildingService;
 
     private User getCurrentUser() {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            return null;
+        }
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return studentService.findByUsername(username);
         }
         return null;
@@ -40,69 +50,52 @@ public class LeaveRequestController {
 
     @GetMapping("/my/list")
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<Result<List<LeaveRequest>>> getMyLeaves(
-            @RequestParam(required = false) String status
-    ) {
+    public ResponseEntity<Result<List<LeaveRequest>>> getMyLeaves(@RequestParam(required = false) String status) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
-        
-        List<LeaveRequest> leaves;
-        if (status != null && !status.isEmpty()) {
-            leaves = leaveRequestService.findByStudentIdAndStatus(studentId, status);
-        } else {
-            leaves = leaveRequestService.findByStudentId(studentId);
-        }
-        
+
+        List<LeaveRequest> leaves = (status != null && !status.isEmpty())
+                ? leaveRequestService.findByStudentIdAndStatus(studentId, status)
+                : leaveRequestService.findByStudentId(studentId);
+
         return ResponseEntity.ok(Result.success(leaves));
     }
 
     @GetMapping("/counselor/list")
     @PreAuthorize("hasRole('COUNSELOR') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Result<List<LeaveRequest>>> getCounselorLeaves(
-            @RequestParam(required = false) String status
-    ) {
+    public ResponseEntity<Result<List<LeaveRequest>>> getCounselorLeaves(@RequestParam(required = false) String status) {
         User currentUser = getCurrentUser();
-        
+
         if ("SUPER_ADMIN".equals(currentUser.getRole())) {
-            List<LeaveRequest> leaves = leaveRequestService.findAll();
-            return ResponseEntity.ok(Result.success(leaves));
+            return ResponseEntity.ok(Result.success(leaveRequestService.findAll()));
         }
-        
-        List<LeaveRequest> leaves;
-        if (status != null && !status.isEmpty()) {
-            leaves = leaveRequestService.findByCounselorIdAndStatus(currentUser.getId(), status);
-        } else {
-            leaves = leaveRequestService.findByCounselorId(currentUser.getId());
-        }
-        
+
+        List<LeaveRequest> leaves = (status != null && !status.isEmpty())
+                ? leaveRequestService.findByCounselorIdAndStatus(currentUser.getId(), status)
+                : leaveRequestService.findByCounselorId(currentUser.getId());
+
         return ResponseEntity.ok(Result.success(leaves));
     }
 
     @GetMapping("/building/list")
     @PreAuthorize("hasRole('DORM_ADMIN') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Result<List<LeaveRequest>>> getBuildingLeaves(
-            @RequestParam(required = false) String status
-    ) {
+    public ResponseEntity<Result<List<LeaveRequest>>> getBuildingLeaves(@RequestParam(required = false) String status) {
         User currentUser = getCurrentUser();
-        
+
         if ("SUPER_ADMIN".equals(currentUser.getRole())) {
-            List<LeaveRequest> leaves = leaveRequestService.findAll();
-            return ResponseEntity.ok(Result.success(leaves));
+            return ResponseEntity.ok(Result.success(leaveRequestService.findAll()));
         }
-        
+
         Building building = buildingService.findByAdminUserId(currentUser.getId());
         if (building == null) {
-            return ResponseEntity.ok(Result.error(404, "未找到您管理的楼栋"));
+            return ResponseEntity.ok(Result.error(404, "Assigned building not found"));
         }
-        
+
         List<LeaveRequest> leaves = leaveRequestService.findByBuildingId(building.getId());
-        
         if (status != null && !status.isEmpty()) {
-            leaves = leaves.stream()
-                .filter(l -> status.equals(l.getStatus()))
-                .toList();
+            leaves = leaves.stream().filter(leave -> status.equals(leave.getStatus())).toList();
         }
-        
+
         return ResponseEntity.ok(Result.success(leaves));
     }
 
@@ -111,96 +104,100 @@ public class LeaveRequestController {
     public ResponseEntity<Result<LeaveRequest>> getLeaveById(@PathVariable Long id) {
         LeaveRequest leaveRequest = leaveRequestService.findById(id);
         if (leaveRequest == null) {
-            return ResponseEntity.ok(Result.error(404, "请假记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Leave request not found"));
         }
-        
+
         User currentUser = getCurrentUser();
-        
+
         if ("STUDENT".equals(currentUser.getRole())) {
             Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
             if (!leaveRequest.getStudentId().equals(studentId)) {
-                return ResponseEntity.ok(Result.error(403, "无权查看此请假记录"));
+                return ResponseEntity.ok(Result.error(403, "Cannot view this leave request"));
             }
         } else if ("COUNSELOR".equals(currentUser.getRole())) {
-            if (!currentUser.getId().equals(leaveRequest.getApproverId()) && 
-                !"PENDING".equals(leaveRequest.getStatus())) {
-                return ResponseEntity.ok(Result.error(403, "无权查看此请假记录"));
+            Long counselorId = studentService.getCounselorIdByStudentId(leaveRequest.getStudentId());
+            if (counselorId == null || !counselorId.equals(currentUser.getId())) {
+                return ResponseEntity.ok(Result.error(403, "Cannot view this leave request"));
             }
         }
-        
+
         return ResponseEntity.ok(Result.success(leaveRequest));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
-    @Log(module = "LEAVE", operation = "CREATE", description = "提交请假申请")
+    @Log(module = "LEAVE", operation = "CREATE", description = "Submit leave request")
     public ResponseEntity<Result<Long>> submitLeave(@RequestBody LeaveRequest leaveRequest) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
-        
+
         leaveRequest.setStudentId(studentId);
         leaveRequest.setStatus("PENDING");
-        
+
         int result = leaveRequestService.insert(leaveRequest);
         if (result > 0) {
-            return ResponseEntity.ok(Result.success(leaveRequest.getId(), "请假提交成功"));
-        } else {
-            return ResponseEntity.ok(Result.error(500, "请假提交失败"));
+            return ResponseEntity.ok(Result.success(leaveRequest.getId(), "Leave request submitted successfully"));
         }
+        return ResponseEntity.ok(Result.error(500, "Leave request submission failed"));
     }
 
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasRole('COUNSELOR')")
-    @Log(module = "LEAVE", operation = "UPDATE", description = "审批请假申请")
+    @Log(module = "LEAVE", operation = "UPDATE", description = "Approve leave request")
     public ResponseEntity<Result<Void>> approveLeave(
             @PathVariable Long id,
             @RequestParam String status,
             @RequestParam(required = false) String approveNote
     ) {
         User currentUser = getCurrentUser();
-        
+
         LeaveRequest leaveRequest = leaveRequestService.findById(id);
         if (leaveRequest == null) {
-            return ResponseEntity.ok(Result.error(404, "请假记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Leave request not found"));
         }
-        
         if (!"PENDING".equals(leaveRequest.getStatus())) {
-            return ResponseEntity.ok(Result.error(400, "只能审批待处理的请假"));
+            return ResponseEntity.ok(Result.error(400, "Only pending leave requests can be approved"));
         }
-        
+
+        Long counselorId = studentService.getCounselorIdByStudentId(leaveRequest.getStudentId());
+        if (counselorId == null || !counselorId.equals(currentUser.getId())) {
+            return ResponseEntity.ok(Result.error(403, "Cannot approve leave requests outside your students"));
+        }
+        if (!"APPROVED".equals(status) && !"REJECTED".equals(status)) {
+            return ResponseEntity.ok(Result.error(400, "Invalid approval status"));
+        }
+
         leaveRequestService.approveLeave(id, currentUser.getId(), approveNote, status);
-        return ResponseEntity.ok(Result.success(null, "审批成功"));
+        return ResponseEntity.ok(Result.success(null, "Leave request processed successfully"));
     }
 
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('STUDENT')")
-    @Log(module = "LEAVE", operation = "UPDATE", description = "取消请假申请")
+    @Log(module = "LEAVE", operation = "UPDATE", description = "Cancel leave request")
     public ResponseEntity<Result<Void>> cancelLeave(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
-        
+
         LeaveRequest leaveRequest = leaveRequestService.findById(id);
         if (leaveRequest == null) {
-            return ResponseEntity.ok(Result.error(404, "请假记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Leave request not found"));
         }
-        
         if (!leaveRequest.getStudentId().equals(studentId)) {
-            return ResponseEntity.ok(Result.error(403, "无权取消此请假记录"));
+            return ResponseEntity.ok(Result.error(403, "Cannot cancel this leave request"));
         }
-        
         if (!"PENDING".equals(leaveRequest.getStatus())) {
-            return ResponseEntity.ok(Result.error(400, "只能取消待审批的请假"));
+            return ResponseEntity.ok(Result.error(400, "Only pending leave requests can be canceled"));
         }
-        
+
         leaveRequestService.cancelLeave(id);
-        return ResponseEntity.ok(Result.success(null, "取消成功"));
+        return ResponseEntity.ok(Result.success(null, "Leave request canceled successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "LEAVE", operation = "DELETE", description = "删除请假记录")
+    @Log(module = "LEAVE", operation = "DELETE", description = "Delete leave request")
     public ResponseEntity<Result<Void>> deleteLeave(@PathVariable Long id) {
         leaveRequestService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Leave request deleted successfully"));
     }
 }
