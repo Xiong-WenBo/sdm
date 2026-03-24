@@ -137,6 +137,16 @@ public class LeaveRequestController {
     public ResponseEntity<Result<Long>> submitLeave(@RequestBody LeaveRequest leaveRequest) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
+
+        if (leaveRequest.getStartTime() == null || leaveRequest.getEndTime() == null) {
+            return ResponseEntity.ok(Result.error(400, "Start time and end time are required"));
+        }
+        if (!leaveRequest.getEndTime().isAfter(leaveRequest.getStartTime())) {
+            return ResponseEntity.ok(Result.error(400, "End time must be after start time"));
+        }
+        if (!leaveRequestService.findOverlappingLeaves(studentId, leaveRequest.getStartTime(), leaveRequest.getEndTime()).isEmpty()) {
+            return ResponseEntity.ok(Result.error(400, "Overlapping leave request already exists"));
+        }
         
         leaveRequest.setStudentId(studentId);
         leaveRequest.setStatus("PENDING");
@@ -166,6 +176,13 @@ public class LeaveRequestController {
         
         if (!"PENDING".equals(leaveRequest.getStatus())) {
             return ResponseEntity.ok(Result.error(400, "只能审批待处理的请假"));
+        }
+        Long counselorId = studentService.getCounselorIdByStudentId(leaveRequest.getStudentId());
+        if (counselorId == null || !counselorId.equals(currentUser.getId())) {
+            return ResponseEntity.ok(Result.error(403, "无权审批此请假记录"));
+        }
+        if (!"APPROVED".equals(status) && !"REJECTED".equals(status)) {
+            return ResponseEntity.ok(Result.error(400, "审批状态不合法"));
         }
         
         leaveRequestService.approveLeave(id, currentUser.getId(), approveNote, status);
