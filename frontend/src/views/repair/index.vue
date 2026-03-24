@@ -338,7 +338,8 @@ const getStatusText = (status) => {
 }
 
 const canHandleRepair = (row) => {
-    return userRole.value === Role.DORM_ADMIN || userRole.value === Role.SUPER_ADMIN
+    const canManage = userRole.value === Role.DORM_ADMIN || userRole.value === Role.SUPER_ADMIN
+    return canManage && (row.status === 'PENDING' || row.status === 'PROCESSING')
 }
 
 const canCancelRepair = (row) => {

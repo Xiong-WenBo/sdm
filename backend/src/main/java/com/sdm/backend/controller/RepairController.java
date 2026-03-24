@@ -13,7 +13,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -35,8 +43,7 @@ public class RepairController {
 
     private User getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return studentService.findByUsername(username);
         }
         return null;
@@ -44,51 +51,38 @@ public class RepairController {
 
     @GetMapping("/my/list")
     @PreAuthorize("hasRole('STUDENT')")
-    public ResponseEntity<Result<List<Repair>>> getMyRepairs(
-            @RequestParam(required = false) String status
-    ) {
+    public ResponseEntity<Result<List<Repair>>> getMyRepairs(@RequestParam(required = false) String status) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
-        
-        List<Repair> repairs;
-        if (status != null && !status.isEmpty()) {
-            repairs = repairService.findByStudentIdAndStatus(studentId, status);
-        } else {
-            repairs = repairService.findByStudentId(studentId);
-        }
-        
+
+        List<Repair> repairs = (status != null && !status.isEmpty())
+                ? repairService.findByStudentIdAndStatus(studentId, status)
+                : repairService.findByStudentId(studentId);
+
         return ResponseEntity.ok(Result.success(repairs));
     }
 
     @GetMapping("/building/list")
     @PreAuthorize("hasRole('DORM_ADMIN') or hasRole('SUPER_ADMIN')")
-    public ResponseEntity<Result<List<Repair>>> getBuildingRepairs(
-            @RequestParam(required = false) String status
-    ) {
+    public ResponseEntity<Result<List<Repair>>> getBuildingRepairs(@RequestParam(required = false) String status) {
         User currentUser = getCurrentUser();
-        
+
         if ("SUPER_ADMIN".equals(currentUser.getRole())) {
-            List<Repair> repairs;
-            if (status != null && !status.isEmpty()) {
-                repairs = repairService.findAll();
-            } else {
-                repairs = repairService.findAll();
-            }
+            List<Repair> repairs = (status != null && !status.isEmpty())
+                    ? repairService.findAllByStatus(status)
+                    : repairService.findAll();
             return ResponseEntity.ok(Result.success(repairs));
         }
-        
+
         com.sdm.backend.entity.Building building = buildingService.findByAdminUserId(currentUser.getId());
         if (building == null) {
-            return ResponseEntity.ok(Result.error(404, "未找到您管理的楼栋"));
+            return ResponseEntity.ok(Result.error(404, "Managed building not found"));
         }
-        
-        List<Repair> repairs;
-        if (status != null && !status.isEmpty()) {
-            repairs = repairService.findByBuildingIdAndStatus(building.getId(), status);
-        } else {
-            repairs = repairService.findByBuildingId(building.getId());
-        }
-        
+
+        List<Repair> repairs = (status != null && !status.isEmpty())
+                ? repairService.findByBuildingIdAndStatus(building.getId(), status)
+                : repairService.findByBuildingId(building.getId());
+
         return ResponseEntity.ok(Result.success(repairs));
     }
 
@@ -97,111 +91,115 @@ public class RepairController {
     public ResponseEntity<Result<Repair>> getRepairById(@PathVariable Long id) {
         Repair repair = repairService.findById(id);
         if (repair == null) {
-            return ResponseEntity.ok(Result.error(404, "报修记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Repair record not found"));
         }
-        
+
         User currentUser = getCurrentUser();
-        
         if ("STUDENT".equals(currentUser.getRole())) {
             Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
             if (!repair.getStudentId().equals(studentId)) {
-                return ResponseEntity.ok(Result.error(403, "无权查看此报修记录"));
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         } else if ("DORM_ADMIN".equals(currentUser.getRole())) {
             com.sdm.backend.entity.Building building = buildingService.findByAdminUserId(currentUser.getId());
             if (building == null || !repair.getBuildingId().equals(building.getId())) {
-                return ResponseEntity.ok(Result.error(403, "无权查看此报修记录"));
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         }
-        
+
         return ResponseEntity.ok(Result.success(repair));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('STUDENT')")
-    @Log(module = "REPAIR", operation = "CREATE", description = "提交报修")
+    @Log(module = "REPAIR", operation = "CREATE", description = "Create repair request")
     public ResponseEntity<Result<Long>> submitRepair(@RequestBody Repair repair) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
-        
+
         com.sdm.backend.entity.Student student = studentService.findById(studentId);
         if (student == null) {
-            return ResponseEntity.ok(Result.error(404, "未找到学生信息"));
+            return ResponseEntity.ok(Result.error(404, "Student not found"));
         }
-        
-        // 自动获取学生当前住宿的房间
+
         Assignment assignment = assignmentService.findActiveByStudentId(studentId);
         if (assignment == null) {
-            return ResponseEntity.ok(Result.error(400, "您尚未分配宿舍，无法提交报修"));
+            return ResponseEntity.ok(Result.error(400, "Dorm assignment is required before submitting a repair"));
         }
-        
+
         repair.setStudentId(studentId);
         repair.setRoomId(assignment.getRoomId());
         repair.setStatus("PENDING");
-        
+
         int result = repairService.insert(repair);
         if (result > 0) {
-            return ResponseEntity.ok(Result.success(repair.getId(), "报修提交成功"));
-        } else {
-            return ResponseEntity.ok(Result.error(500, "报修提交失败"));
+            return ResponseEntity.ok(Result.success(repair.getId(), "Repair submitted successfully"));
         }
+        return ResponseEntity.ok(Result.error(500, "Repair submission failed"));
     }
 
     @PutMapping("/{id}/handle")
     @PreAuthorize("hasRole('DORM_ADMIN') or hasRole('SUPER_ADMIN')")
-    @Log(module = "REPAIR", operation = "UPDATE", description = "处理报修")
+    @Log(module = "REPAIR", operation = "UPDATE", description = "Handle repair request")
     public ResponseEntity<Result<Void>> handleRepair(
             @PathVariable Long id,
             @RequestParam String status,
             @RequestParam(required = false) String handleNote
     ) {
         User currentUser = getCurrentUser();
-        
         Repair repair = repairService.findById(id);
         if (repair == null) {
-            return ResponseEntity.ok(Result.error(404, "报修记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Repair record not found"));
         }
-        
+
         if ("DORM_ADMIN".equals(currentUser.getRole())) {
             com.sdm.backend.entity.Building building = buildingService.findByAdminUserId(currentUser.getId());
             if (building == null || !repair.getBuildingId().equals(building.getId())) {
-                return ResponseEntity.ok(Result.error(403, "无权处理此报修记录"));
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         }
-        
-        repairService.handleRepair(id, currentUser.getId(), handleNote, status);
-        return ResponseEntity.ok(Result.success(null, "处理成功"));
+
+        if (!"PENDING".equals(repair.getStatus()) && !"PROCESSING".equals(repair.getStatus())) {
+            return ResponseEntity.ok(Result.error(400, "Only pending or processing repairs can be handled"));
+        }
+        if (!"PROCESSING".equals(status) && !"COMPLETED".equals(status) && !"REJECTED".equals(status)) {
+            return ResponseEntity.ok(Result.error(400, "Invalid repair status"));
+        }
+
+        int updated = repairService.handleRepair(id, currentUser.getId(), handleNote, status);
+        if (updated == 0) {
+            return ResponseEntity.ok(Result.error(400, "Repair state update was rejected"));
+        }
+        return ResponseEntity.ok(Result.success(null, "Repair updated successfully"));
     }
 
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasRole('STUDENT')")
-    @Log(module = "REPAIR", operation = "UPDATE", description = "取消报修")
+    @Log(module = "REPAIR", operation = "UPDATE", description = "Cancel repair request")
     public ResponseEntity<Result<Void>> cancelRepair(@PathVariable Long id) {
         User currentUser = getCurrentUser();
         Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
-        
+
         Repair repair = repairService.findById(id);
         if (repair == null) {
-            return ResponseEntity.ok(Result.error(404, "报修记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Repair record not found"));
         }
-        
         if (!repair.getStudentId().equals(studentId)) {
-            return ResponseEntity.ok(Result.error(403, "无权取消此报修记录"));
+            return ResponseEntity.ok(Result.error(403, "Access denied"));
         }
-        
         if (!"PENDING".equals(repair.getStatus())) {
-            return ResponseEntity.ok(Result.error(400, "只能取消待处理的报修"));
+            return ResponseEntity.ok(Result.error(400, "Only pending repairs can be canceled"));
         }
-        
+
         repairService.cancelRepair(id);
-        return ResponseEntity.ok(Result.success(null, "取消成功"));
+        return ResponseEntity.ok(Result.success(null, "Canceled successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "REPAIR", operation = "DELETE", description = "删除报修记录")
+    @Log(module = "REPAIR", operation = "DELETE", description = "Delete repair record")
     public ResponseEntity<Result<Void>> deleteRepair(@PathVariable Long id) {
         repairService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Deleted successfully"));
     }
 }
