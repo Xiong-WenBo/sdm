@@ -25,7 +25,6 @@
                 </div>
             </template>
 
-            <!-- 搜索栏 -->
             <el-form :inline="true" :model="searchForm" class="search-form">
                 <el-form-item label="班级">
                     <el-input v-model="searchForm.className" placeholder="请输入班级" clearable />
@@ -39,7 +38,6 @@
                 </el-form-item>
             </el-form>
 
-            <!-- 学生列表 -->
             <el-table :data="studentList" v-loading="loading" element-loading-text="加载中..." border stripe style="width: 100%">
                 <template #empty>
                     <el-empty description="暂无学生数据" />
@@ -66,7 +64,6 @@
                 </el-table-column>
             </el-table>
 
-            <!-- 分页 -->
             <Pagination
                 v-model="pagination.page"
                 v-model:page-size="pagination.size"
@@ -76,7 +73,6 @@
             />
         </el-card>
 
-        <!-- 新增/编辑学生弹窗 -->
         <el-dialog
             v-model="dialogVisible"
             :title="dialogTitle"
@@ -101,7 +97,7 @@
                 <el-form-item label="专业" prop="major">
                     <el-input v-model="studentForm.major" placeholder="请输入专业" />
                 </el-form-item>
-                <el-form-item label="辅导员" prop="counselorId">
+                <el-form-item label="辅导员" prop="counselorId" v-if="!isCounselor">
                     <el-select v-model="studentForm.counselorId" placeholder="请选择辅导员" clearable filterable style="width: 100%">
                         <el-option
                             v-for="counselor in counselorList"
@@ -128,7 +124,6 @@
             </template>
         </el-dialog>
 
-        <!-- 批量导入弹窗 -->
         <el-dialog
             v-model="importDialogVisible"
             title="批量导入学生"
@@ -139,7 +134,7 @@
                 type="info"
                 show-icon
                 style="margin-bottom: 20px"
-                description="请先下载模板，填写后上传。默认密码为学号后六位。"
+                description="请先下载模板，填写后上传。默认密码为学号后六位，不足六位则为学号本身。"
             />
             <el-upload
                 ref="uploadRef"
@@ -150,9 +145,9 @@
                 accept=".xlsx,.xls"
                 style="width: 100%"
             >
-                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
                 <div class="el-upload__text">
-                    将文件拖到此处，或<em>点击上传</em>
+                    将文件拖到此处，或 <em>点击上传</em>
                 </div>
             </el-upload>
             <template #footer>
@@ -182,6 +177,8 @@ const uploadRef = ref(null)
 const selectedFile = ref(null)
 
 const userRole = localStorage.getItem('role')
+const currentUserId = Number(localStorage.getItem('userId'))
+const isCounselor = userRole === 'COUNSELOR'
 
 const searchForm = reactive({
     className: '',
@@ -225,18 +222,18 @@ const studentFormRules = {
 
 const getHousingStatusType = (status) => {
     const typeMap = {
-        'ACTIVE': 'success',
-        'INACTIVE': 'info',
-        'NONE': 'warning'
+        ACTIVE: 'success',
+        INACTIVE: 'info',
+        NONE: 'warning'
     }
     return typeMap[status] || 'info'
 }
 
 const getHousingStatusText = (status) => {
     const textMap = {
-        'ACTIVE': '在住',
-        'INACTIVE': '已退宿',
-        'NONE': '未住宿'
+        ACTIVE: '在住',
+        INACTIVE: '已退宿',
+        NONE: '未入住'
     }
     return textMap[status] || '未知'
 }
@@ -264,9 +261,8 @@ const loadStudentList = async () => {
 const loadCounselorList = async () => {
     try {
         const res = await axios.get('/api/user/list', {
-            params: { page: 1, size: 1000 }
+            params: { page: 1, size: 1000, role: 'COUNSELOR', status: 1 }
         })
-        // 筛选出辅导员
         counselorList.value = res.data.list.filter(u => u.role === 'COUNSELOR')
     } catch (error) {
         console.error('加载辅导员列表失败:', error)
@@ -288,8 +284,13 @@ const handleReset = () => {
 const handleAdd = () => {
     dialogTitle.value = '新增学生'
     isEdit.value = false
+    if (isCounselor) {
+        studentForm.counselorId = currentUserId
+    }
     dialogVisible.value = true
-    loadCounselorList()
+    if (!isCounselor) {
+        loadCounselorList()
+    }
 }
 
 const handleEdit = (row) => {
@@ -301,10 +302,12 @@ const handleEdit = (row) => {
     studentForm.realName = row.realName
     studentForm.className = row.className
     studentForm.major = row.major
-    studentForm.counselorId = row.counselorId
+    studentForm.counselorId = isCounselor ? currentUserId : row.counselorId
     studentForm.enrollmentDate = row.enrollmentDate
     dialogVisible.value = true
-    loadCounselorList()
+    if (!isCounselor) {
+        loadCounselorList()
+    }
 }
 
 const handleDelete = (row) => {
@@ -331,6 +334,10 @@ const handleSubmit = async () => {
 
         submitting.value = true
         try {
+            if (isCounselor) {
+                studentForm.counselorId = currentUserId
+            }
+
             if (isEdit.value) {
                 await axios.put(`/api/student/${studentForm.id}`, studentForm)
                 ElMessage.success('更新成功')
@@ -356,7 +363,7 @@ const handleDialogClose = () => {
     studentForm.realName = ''
     studentForm.className = ''
     studentForm.major = ''
-    studentForm.counselorId = null
+    studentForm.counselorId = isCounselor ? currentUserId : null
     studentForm.enrollmentDate = ''
 }
 
@@ -366,12 +373,12 @@ const handleExport = async () => {
             responseType: 'blob',
             transformResponse: [(data) => data]
         })
-        
+
         if (!(response.data instanceof Blob)) {
             ElMessage.error('导出失败：响应数据格式错误')
             return
         }
-        
+
         const url = window.URL.createObjectURL(response.data)
         const link = document.createElement('a')
         link.href = url
@@ -390,16 +397,14 @@ const handleDownloadTemplate = async () => {
     try {
         const response = await axios.get('/api/student/template', {
             responseType: 'blob',
-            // 跳过响应拦截器的 JSON 解析
             transformResponse: [(data) => data]
         })
-        
-        // 检查响应是否为 blob 类型
+
         if (!(response.data instanceof Blob)) {
             ElMessage.error('下载失败：响应数据格式错误')
             return
         }
-        
+
         const url = window.URL.createObjectURL(response.data)
         const link = document.createElement('a')
         link.href = url
@@ -411,7 +416,6 @@ const handleDownloadTemplate = async () => {
         ElMessage.success('模板下载成功')
     } catch (error) {
         console.error('下载模板失败:', error)
-        // 错误已经在拦截器中显示
     }
 }
 
@@ -438,7 +442,7 @@ const handleImportSubmit = async () => {
                 'Content-Type': 'multipart/form-data'
             }
         })
-        
+
         if (res.code === 200) {
             ElMessage.success(res.message || '导入成功')
             importDialogVisible.value = false
@@ -448,7 +452,6 @@ const handleImportSubmit = async () => {
         }
     } catch (error) {
         console.error('导入失败:', error)
-        // 错误已经在拦截器中处理
     } finally {
         importing.value = false
     }
