@@ -14,7 +14,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -37,21 +45,14 @@ public class AssignmentController {
     @Autowired
     private UserService userService;
 
-    /**
-     * 获取当前登录用户
-     */
     private User getCurrentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return userService.findByUsername(username);
         }
         return null;
     }
 
-    /**
-     * 获取当前宿管管理的楼栋 ID
-     */
     private Long getDormAdminBuildingId(User user) {
         if (user == null || !"DORM_ADMIN".equals(user.getRole())) {
             return null;
@@ -72,18 +73,12 @@ public class AssignmentController {
     ) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
-
-        // 如果是宿管，强制使用其管理的楼栋 ID
         if (dormAdminBuildingId != null) {
             buildingId = dormAdminBuildingId;
         }
 
-        // 如果是辅导员，需要过滤本班级学生（这里简化处理，暂不实现）
-        // TODO: 根据辅导员 ID 过滤学生
-
         List<Assignment> assignments;
         int total;
-
         if (studentId != null || roomId != null || buildingId != null || status != null) {
             assignments = assignmentService.findByPageAndFilters(page, size, studentId, roomId, buildingId, status);
             total = assignmentService.countByFilters(studentId, roomId, buildingId, status);
@@ -97,7 +92,6 @@ public class AssignmentController {
         result.put("total", total);
         result.put("page", page);
         result.put("size", size);
-
         return ResponseEntity.ok(Result.success(result));
     }
 
@@ -106,7 +100,7 @@ public class AssignmentController {
     public ResponseEntity<Result<Assignment>> getAssignmentById(@PathVariable Long id) {
         Assignment assignment = assignmentService.findById(id);
         if (assignment == null) {
-            return ResponseEntity.ok(Result.error(404, "住宿记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Assignment not found"));
         }
         return ResponseEntity.ok(Result.success(assignment));
     }
@@ -125,9 +119,6 @@ public class AssignmentController {
         return ResponseEntity.ok(Result.success(assignments));
     }
 
-    /**
-     * 获取可分配的房间列表
-     */
     @GetMapping("/available-rooms")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
     public ResponseEntity<Result<List<Room>>> getAvailableRooms(
@@ -136,67 +127,47 @@ public class AssignmentController {
     ) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
-
-        // 如果是宿管，强制使用其管理的楼栋 ID
         if (dormAdminBuildingId != null) {
             buildingId = dormAdminBuildingId;
         }
 
-        // 查询可分配的房间（current_occupancy < capacity 且状态为 AVAILABLE）
-        // 这里简化处理，实际应该用专门的查询方法
-        // 暂时返回所有房间，前端过滤
-        List<Room> rooms;
-        if (buildingId != null) {
-            rooms = roomService.findByBuildingId(buildingId);
-        } else {
-            rooms = roomService.findAll();
-        }
-
-        // 过滤出可分配的房间
+        List<Room> rooms = buildingId != null ? roomService.findByBuildingId(buildingId) : roomService.findAll();
         List<Room> availableRooms = rooms.stream()
-            .filter(room -> room.getCurrentOccupancy() < room.getCapacity() 
-                         && "AVAILABLE".equals(room.getStatus()))
-            .filter(room -> gender == null || gender.isEmpty() 
-                         || "UNISEX".equals(room.getGender()) 
-                         || gender.equals(room.getGender()))
-            .toList();
+                .filter(room -> room.getCurrentOccupancy() < room.getCapacity())
+                .filter(room -> "AVAILABLE".equals(room.getStatus()))
+                .filter(room -> gender == null || gender.isEmpty()
+                        || "UNISEX".equals(room.getGender())
+                        || gender.equals(room.getGender()))
+                .toList();
 
         return ResponseEntity.ok(Result.success(availableRooms));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ASSIGNMENT", operation = "CREATE", description = "分配宿舍")
+    @Log(module = "ASSIGNMENT", operation = "CREATE", description = "Create assignment")
     public ResponseEntity<Result<Void>> createAssignment(@RequestBody Assignment assignment) {
         User currentUser = getCurrentUser();
         Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
 
-        // 验证房间权限
-        if (dormAdminBuildingId != null) {
-            Room room = roomService.findById(assignment.getRoomId());
-            if (room == null || !room.getBuildingId().equals(dormAdminBuildingId)) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能操作自己管理的楼栋"));
-            }
-        }
-
-        // 验证房间是否有空床位
         Room room = roomService.findById(assignment.getRoomId());
         if (room == null) {
-            return ResponseEntity.ok(Result.error(400, "房间不存在"));
+            return ResponseEntity.ok(Result.error(400, "Room not found"));
+        }
+        if (dormAdminBuildingId != null && !room.getBuildingId().equals(dormAdminBuildingId)) {
+            return ResponseEntity.ok(Result.error(403, "Access denied"));
         }
         if (room.getCurrentOccupancy() >= room.getCapacity()) {
-            return ResponseEntity.ok(Result.error(400, "房间已满，无法分配"));
+            return ResponseEntity.ok(Result.error(400, "Room is already full"));
         }
 
-        // 检查学生是否已有住宿记录
         List<Assignment> existingAssignments = assignmentService.findByStudentId(assignment.getStudentId());
         for (Assignment existing : existingAssignments) {
             if ("ACTIVE".equals(existing.getStatus())) {
-                return ResponseEntity.ok(Result.error(400, "该学生已有在住的住宿记录"));
+                return ResponseEntity.ok(Result.error(400, "Student already has an active assignment"));
             }
         }
 
-        // 设置默认值
         if (assignment.getCheckInDate() == null) {
             assignment.setCheckInDate(LocalDate.now());
         }
@@ -206,12 +177,12 @@ public class AssignmentController {
         assignment.setCreatedBy(currentUser.getId());
 
         assignmentService.insert(assignment);
-        return ResponseEntity.ok(Result.success(null, "分配成功"));
+        return ResponseEntity.ok(Result.success(null, "Assignment created successfully"));
     }
 
     @PutMapping("/{id}/checkout")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ASSIGNMENT", operation = "UPDATE", description = "退宿处理")
+    @Log(module = "ASSIGNMENT", operation = "UPDATE", description = "Check out assignment")
     public ResponseEntity<Result<Void>> checkOut(@PathVariable Long id,
                                                  @RequestParam(required = false) LocalDate checkOutDate) {
         User currentUser = getCurrentUser();
@@ -219,28 +190,26 @@ public class AssignmentController {
 
         Assignment assignment = assignmentService.findById(id);
         if (assignment == null) {
-            return ResponseEntity.ok(Result.error(404, "住宿记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Assignment not found"));
+        }
+        if (!"ACTIVE".equals(assignment.getStatus())) {
+            return ResponseEntity.ok(Result.error(400, "Assignment is not active"));
         }
 
-        // 验证房间权限
         if (dormAdminBuildingId != null) {
             Room room = roomService.findById(assignment.getRoomId());
             if (room == null || !room.getBuildingId().equals(dormAdminBuildingId)) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能操作自己管理的楼栋"));
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         }
 
-        if (checkOutDate == null) {
-            checkOutDate = LocalDate.now();
-        }
-
-        assignmentService.checkOut(id, checkOutDate);
-        return ResponseEntity.ok(Result.success(null, "退宿成功"));
+        assignmentService.checkOut(id, checkOutDate != null ? checkOutDate : LocalDate.now());
+        return ResponseEntity.ok(Result.success(null, "Checked out successfully"));
     }
 
     @PutMapping("/{id}/transfer")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
-    @Log(module = "ASSIGNMENT", operation = "UPDATE", description = "调宿处理")
+    @Log(module = "ASSIGNMENT", operation = "UPDATE", description = "Transfer assignment")
     public ResponseEntity<Result<Void>> transfer(@PathVariable Long id,
                                                  @RequestParam Long newRoomId,
                                                  @RequestParam String newBedNumber) {
@@ -249,39 +218,48 @@ public class AssignmentController {
 
         Assignment assignment = assignmentService.findById(id);
         if (assignment == null) {
-            return ResponseEntity.ok(Result.error(404, "住宿记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Assignment not found"));
+        }
+        if (!"ACTIVE".equals(assignment.getStatus())) {
+            return ResponseEntity.ok(Result.error(400, "Assignment is not active"));
         }
 
-        // 验证原房间权限
+        Room newRoom = roomService.findById(newRoomId);
+        if (newRoom == null) {
+            return ResponseEntity.ok(Result.error(400, "Target room not found"));
+        }
+
         if (dormAdminBuildingId != null) {
             Room oldRoom = roomService.findById(assignment.getRoomId());
-            Room newRoom = roomService.findById(newRoomId);
-            if (oldRoom == null || newRoom == null || 
-                !oldRoom.getBuildingId().equals(dormAdminBuildingId) ||
-                !newRoom.getBuildingId().equals(dormAdminBuildingId)) {
-                return ResponseEntity.ok(Result.error(403, "宿管只能操作自己管理的楼栋"));
+            if (oldRoom == null
+                    || !oldRoom.getBuildingId().equals(dormAdminBuildingId)
+                    || !newRoom.getBuildingId().equals(dormAdminBuildingId)) {
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
             }
         }
 
-        // 验证新房间是否有空床位
-        Room newRoom = roomService.findById(newRoomId);
-        if (newRoom.getCurrentOccupancy() >= newRoom.getCapacity()) {
-            return ResponseEntity.ok(Result.error(400, "目标房间已满，无法调宿"));
+        boolean sameRoom = newRoomId.equals(assignment.getRoomId());
+        boolean sameBed = newBedNumber.equals(assignment.getBedNumber());
+        if (sameRoom && sameBed) {
+            return ResponseEntity.ok(Result.error(400, "Target bed is unchanged"));
+        }
+        if (!sameRoom && newRoom.getCurrentOccupancy() >= newRoom.getCapacity()) {
+            return ResponseEntity.ok(Result.error(400, "Target room is already full"));
         }
 
         assignmentService.transfer(id, newRoomId, newBedNumber);
-        return ResponseEntity.ok(Result.success(null, "调宿成功"));
+        return ResponseEntity.ok(Result.success(null, "Transferred successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "ASSIGNMENT", operation = "DELETE", description = "删除住宿记录")
+    @Log(module = "ASSIGNMENT", operation = "DELETE", description = "Delete assignment")
     public ResponseEntity<Result<Void>> deleteAssignment(@PathVariable Long id) {
         Assignment assignment = assignmentService.findById(id);
         if (assignment == null) {
-            return ResponseEntity.ok(Result.error(404, "住宿记录不存在"));
+            return ResponseEntity.ok(Result.error(404, "Assignment not found"));
         }
         assignmentService.deleteById(id);
-        return ResponseEntity.ok(Result.success(null, "删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Deleted successfully"));
     }
 }

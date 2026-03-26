@@ -260,7 +260,8 @@ const addForm = reactive({
 
 const transferForm = reactive({
     newRoomId: null,
-    newBedNumber: ''
+    newBedNumber: '',
+    buildingId: null
 })
 
 const addFormRules = {
@@ -406,17 +407,18 @@ const handleTransfer = (row) => {
     currentAssignmentId.value = row.id
     transferForm.newRoomId = null
     transferForm.newBedNumber = ''
+    transferForm.buildingId = row.buildingId || searchForm.buildingId || null
     
-    // 加载可用房间（同楼栋）
-    // 这里简化处理，加载所有可用房间
-    loadAvailableRoomsForTransfer()
+    loadAvailableRoomsForTransfer(transferForm.buildingId)
     
     transferDialogVisible.value = true
 }
 
-const loadAvailableRoomsForTransfer = async () => {
+const loadAvailableRoomsForTransfer = async (buildingId) => {
     try {
-        const res = await axios.get('/api/assignment/available-rooms')
+        const res = await axios.get('/api/assignment/available-rooms', {
+            params: { buildingId: buildingId || undefined }
+        })
         availableRooms.value = res.data
     } catch (error) {
         console.error('加载可用房间失败:', error)
