@@ -5,22 +5,39 @@ import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
 import com.sdm.backend.service.StudentService;
 import com.sdm.backend.util.ExcelExportUtil;
-import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellType;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/student")
@@ -35,21 +52,21 @@ public class StudentController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String role = authentication.getAuthorities().stream()
             .findFirst().get().getAuthority();
-        
+
         if ("ROLE_COUNSELOR".equals(role)) {
             Student student = studentService.findById(id);
             if (student == null) {
-                return ResponseEntity.ok(Result.error(404, "学生不存在"));
+                return ResponseEntity.ok(Result.error(404, "Student not found"));
             }
             if (!student.getCounselorId().equals(getCurrentUserId())) {
-                return ResponseEntity.ok(Result.error(403, "无权查看非本班学生"));
+                return ResponseEntity.ok(Result.error(403, "No permission to view this student"));
             }
             return ResponseEntity.ok(Result.success(student));
         }
-        
+
         Student student = studentService.findById(id);
         if (student == null) {
-            return ResponseEntity.ok(Result.error(404, "学生不存在"));
+            return ResponseEntity.ok(Result.error(404, "Student not found"));
         }
         return ResponseEntity.ok(Result.success(student));
     }
@@ -66,11 +83,11 @@ public class StudentController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String role = authentication.getAuthorities().stream()
             .findFirst().get().getAuthority();
-        
+
         if ("ROLE_COUNSELOR".equals(role)) {
             counselorId = getCurrentUserId();
         }
-        
+
         List<Student> students;
         int total;
 
@@ -110,89 +127,83 @@ public class StudentController {
 
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
-    @Log(module = "STUDENT", operation = "CREATE", description = "新增学生")
+    @Log(module = "STUDENT", operation = "CREATE", description = "Create student")
     public ResponseEntity<Result<Void>> createStudent(@RequestBody Student student) {
-        // 验证学号是否重复
         Student existing = studentService.findByStudentNumber(student.getStudentNumber());
         if (existing != null) {
-            return ResponseEntity.ok(Result.error(400, "学号已存在"));
+            return ResponseEntity.ok(Result.error(400, "Student number already exists"));
         }
 
-        // 如果是辅导员，自动设置辅导员 ID 为当前用户
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String role = authentication.getAuthorities().stream()
             .findFirst().get().getAuthority();
-        
+
         if ("ROLE_COUNSELOR".equals(role)) {
             student.setCounselorId(getCurrentUserId());
         }
 
-        // 设置默认密码为 123123
-        String password = "123123";
-
+        String password = studentService.generateInitialPassword(student.getStudentNumber());
         studentService.createStudentUser(student, password);
-        return ResponseEntity.ok(Result.success(null, "学生创建成功，默认密码为 123123"));
+        return ResponseEntity.ok(Result.success(null, "Student created. Initial password uses the last 6 digits of the student number."));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
-    @Log(module = "STUDENT", operation = "UPDATE", description = "修改学生信息")
+    @Log(module = "STUDENT", operation = "UPDATE", description = "Update student")
     public ResponseEntity<Result<Void>> updateStudent(@PathVariable Long id, @RequestBody Student student) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String role = authentication.getAuthorities().stream()
             .findFirst().get().getAuthority();
-        
+
         Student existing = studentService.findById(id);
         if (existing == null) {
-            return ResponseEntity.ok(Result.error(404, "学生不存在"));
-        }
-        
-        if ("ROLE_COUNSELOR".equals(role)) {
-            if (!existing.getCounselorId().equals(getCurrentUserId())) {
-                return ResponseEntity.ok(Result.error(403, "无权修改非本班学生"));
-            }
+            return ResponseEntity.ok(Result.error(404, "Student not found"));
         }
 
-        // 验证学号是否重复（排除当前学生）
+        if ("ROLE_COUNSELOR".equals(role) && !existing.getCounselorId().equals(getCurrentUserId())) {
+            return ResponseEntity.ok(Result.error(403, "No permission to update this student"));
+        }
+
         Student duplicate = studentService.findByStudentNumberExclude(student.getStudentNumber(), existing.getUserId());
         if (duplicate != null) {
-            return ResponseEntity.ok(Result.error(400, "学号已存在"));
+            return ResponseEntity.ok(Result.error(400, "Student number already exists"));
         }
 
         student.setId(id);
         student.setUserId(existing.getUserId());
         studentService.updateStudentInfo(student);
-        return ResponseEntity.ok(Result.success(null, "学生信息更新成功"));
+        return ResponseEntity.ok(Result.success(null, "Student updated successfully"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "STUDENT", operation = "DELETE", description = "删除学生")
+    @Log(module = "STUDENT", operation = "DELETE", description = "Delete student")
     public ResponseEntity<Result<Void>> deleteStudent(@PathVariable Long id) {
         Student student = studentService.findById(id);
         if (student == null) {
-            return ResponseEntity.ok(Result.error(404, "学生不存在"));
+            return ResponseEntity.ok(Result.error(404, "Student not found"));
         }
         studentService.deleteByUserId(student.getUserId());
-        return ResponseEntity.ok(Result.success(null, "学生删除成功"));
+        return ResponseEntity.ok(Result.success(null, "Student deleted successfully"));
     }
 
-    /**
-     * 导出学生名单 Excel
-     */
     @GetMapping("/export")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
-    @Log(module = "STUDENT", operation = "EXPORT", description = "导出学生名单")
+    @Log(module = "STUDENT", operation = "EXPORT", description = "Export students")
     public ResponseEntity<byte[]> exportStudents() {
         try {
-            List<Student> students = studentService.findAll();
-            
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String authority = authentication.getAuthorities().stream()
+                .findFirst().map(Object::toString).orElse("");
+            String role = authority.startsWith("ROLE_") ? authority.substring(5) : authority;
+            List<Student> students = studentService.findStudentsForExport(role, getCurrentUserId());
+
             ByteArrayOutputStream os = new ByteArrayOutputStream();
-            ExcelExportUtil.exportExcel(students, Student.class, "学生名单", os);
-            
+            ExcelExportUtil.exportExcel(students, Student.class, "Students", os);
+
             return ResponseEntity.ok()
                 .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                .header("Content-Disposition", "attachment; filename=\"学生名单.xlsx\"")
+                .header("Content-Disposition", "attachment; filename=\"students.xlsx\"")
                 .body(os.toByteArray());
         } catch (Exception e) {
             e.printStackTrace();
@@ -200,15 +211,12 @@ public class StudentController {
         }
     }
 
-    /**
-     * Excel 批量导入学生
-     */
     @PostMapping("/import")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    @Log(module = "STUDENT", operation = "IMPORT", description = "批量导入学生")
+    @Log(module = "STUDENT", operation = "IMPORT", description = "Import students")
     public ResponseEntity<Result<Map<String, Object>>> importStudents(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
-            return ResponseEntity.ok(Result.error(400, "请选择文件"));
+            return ResponseEntity.ok(Result.error(400, "Please select a file"));
         }
 
         List<Student> students = new ArrayList<>();
@@ -216,12 +224,11 @@ public class StudentController {
 
         try (InputStream inputStream = file.getInputStream();
              Workbook workbook = new XSSFWorkbook(inputStream)) {
-            
+
             Sheet sheet = workbook.getSheetAt(0);
             int rowCount = 0;
 
             for (Row row : sheet) {
-                // 跳过标题行
                 if (rowCount == 0) {
                     rowCount++;
                     continue;
@@ -229,178 +236,144 @@ public class StudentController {
 
                 try {
                     Student student = new Student();
-                    
-                    // 读取单元格数据
                     student.setStudentNumber(getCellValue(row.getCell(0)));
                     student.setRealName(getCellValue(row.getCell(1)));
                     student.setClassName(getCellValue(row.getCell(2)));
                     student.setMajor(getCellValue(row.getCell(3)));
-                    
-                    // 辅导员 ID（从用户名查找，暂简化为 null）
-                    // student.setCounselorId(...);
-                    
-                    // 入学日期
+
                     Cell dateCell = row.getCell(4);
                     if (dateCell != null && dateCell.getCellType() == CellType.NUMERIC) {
                         Date date = Date.from(dateCell.getLocalDateTimeCellValue().atZone(ZoneId.systemDefault()).toInstant());
                         student.setEnrollmentDate(LocalDate.ofInstant(date.toInstant(), ZoneId.systemDefault()));
                     }
 
-                    // 验证必填字段
                     if (student.getStudentNumber() == null || student.getStudentNumber().isEmpty()) {
-                        errors.add("第" + (rowCount + 1) + "行：学号不能为空");
+                        errors.add("Row " + (rowCount + 1) + ": student number is required");
                         rowCount++;
                         continue;
                     }
                     if (student.getRealName() == null || student.getRealName().isEmpty()) {
-                        errors.add("第" + (rowCount + 1) + "行：姓名不能为空");
+                        errors.add("Row " + (rowCount + 1) + ": name is required");
                         rowCount++;
                         continue;
                     }
 
                     students.add(student);
                 } catch (Exception e) {
-                    errors.add("第" + (rowCount + 1) + "行：解析失败 - " + e.getMessage());
+                    errors.add("Row " + (rowCount + 1) + ": parse failed - " + e.getMessage());
                 }
-                
+
                 rowCount++;
             }
         } catch (IOException e) {
-            return ResponseEntity.ok(Result.error(500, "文件解析失败：" + e.getMessage()));
+            return ResponseEntity.ok(Result.error(500, "File parse failed: " + e.getMessage()));
         }
 
-        // 如果没有错误，批量导入
         if (errors.isEmpty() && !students.isEmpty()) {
             int successCount = 0;
             for (Student student : students) {
                 try {
-                    // 检查学号是否已存在
                     Student existing = studentService.findByStudentNumber(student.getStudentNumber());
                     if (existing != null) {
-                        errors.add("学号 " + student.getStudentNumber() + " 已存在，已跳过");
+                        errors.add("Student number " + student.getStudentNumber() + " already exists, skipped");
                         continue;
                     }
 
-                    // 设置默认密码为 123123
-                    String password = "123123";
-
+                    String password = studentService.generateInitialPassword(student.getStudentNumber());
                     studentService.createStudentUser(student, password);
                     successCount++;
                 } catch (Exception e) {
-                    errors.add("学号 " + student.getStudentNumber() + " 导入失败：" + e.getMessage());
+                    errors.add("Student number " + student.getStudentNumber() + " import failed: " + e.getMessage());
                 }
             }
 
             Map<String, Object> result = new HashMap<>();
             result.put("successCount", successCount);
             result.put("errors", errors);
-            
+
             if (successCount > 0 && errors.isEmpty()) {
-                return ResponseEntity.ok(Result.success(result, "导入成功 " + successCount + " 条记录"));
+                return ResponseEntity.ok(Result.success(result, "Imported " + successCount + " students successfully"));
             } else if (successCount > 0) {
-                return ResponseEntity.ok(Result.success(result, "部分导入成功：" + successCount + " 条，失败：" + errors.size() + " 条"));
+                return ResponseEntity.ok(Result.success(result, "Partially imported " + successCount + " students"));
             } else {
-                return ResponseEntity.ok(Result.error(400, "导入失败"));
+                return ResponseEntity.ok(Result.error(400, "Import failed"));
             }
         } else {
             Map<String, Object> result = new HashMap<>();
             result.put("errors", errors);
-            return ResponseEntity.ok(Result.error(400, "数据验证失败"));
+            return ResponseEntity.ok(Result.error(400, "Validation failed"));
         }
     }
 
-    /**
-     * 获取 Excel 导入模板
-     */
     @GetMapping("/template")
     public ResponseEntity<byte[]> getImportTemplate() {
         try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("学生模板");
-            
-            // 创建标题行
+            Sheet sheet = workbook.createSheet("students");
+
             Row headerRow = sheet.createRow(0);
-            String[] headers = {"学号", "姓名", "班级", "专业", "入学日期"};
-            
-            for (int i = 0; i < headers.length; i++) {
+            String[] templateHeaders = {"Student Number", "Name", "Class", "Major", "Enrollment Date"};
+
+            for (int i = 0; i < templateHeaders.length; i++) {
                 Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
+                cell.setCellValue(templateHeaders[i]);
             }
 
-            // 示例数据
             Row dataRow = sheet.createRow(1);
             dataRow.createCell(0).setCellValue("2021001");
-            dataRow.createCell(1).setCellValue("张三");
-            dataRow.createCell(2).setCellValue("计算机 2101 班");
-            dataRow.createCell(3).setCellValue("计算机科学与技术");
+            dataRow.createCell(1).setCellValue("Alice");
+            dataRow.createCell(2).setCellValue("CS-2101");
+            dataRow.createCell(3).setCellValue("Computer Science");
             dataRow.createCell(4).setCellValue(LocalDate.of(2021, 9, 1).toString());
 
-            // 设置列宽
-            for (int i = 0; i < headers.length; i++) {
+            for (int i = 0; i < templateHeaders.length; i++) {
                 sheet.autoSizeColumn(i);
             }
 
-            // 输出 Excel 文件
             try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
                 workbook.write(outputStream);
                 byte[] bytes = outputStream.toByteArray();
-                
-                // 对文件名进行 URL 编码，防止中文乱码
-                String encodedFileName = java.net.URLEncoder.encode("学生导入模板.xlsx", "UTF-8").replace("+", "%20");
-                
-                org.springframework.http.HttpHeaders headers_map = new org.springframework.http.HttpHeaders();
-                headers_map.setContentType(org.springframework.http.MediaType.parseMediaType(
+
+                String encodedFileName = java.net.URLEncoder.encode("student-import-template.xlsx", "UTF-8").replace("+", "%20");
+
+                org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+                headers.setContentType(org.springframework.http.MediaType.parseMediaType(
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-                headers_map.setContentDisposition(
-                    org.springframework.http.ContentDisposition
-                        .attachment()
-                        .filename(encodedFileName)
-                        .build());
-                
-                return ResponseEntity.ok()
-                    .headers(headers_map)
-                    .body(bytes);
+                headers.setContentDisposition(
+                    org.springframework.http.ContentDisposition.attachment().filename(encodedFileName).build());
+
+                return ResponseEntity.ok().headers(headers).body(bytes);
             }
         } catch (IOException e) {
             return ResponseEntity.internalServerError().build();
         }
     }
 
-    /**
-     * 获取当前登录用户 ID
-     */
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
-        
+
         com.sdm.backend.entity.User user = studentService.findByUsername(username);
         return user != null ? user.getId() : null;
     }
 
-    /**
-     * 获取单元格值
-     */
     private String getCellValue(Cell cell) {
         if (cell == null) {
             return null;
         }
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue().trim();
-            case NUMERIC:
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue().trim();
+            case NUMERIC -> {
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    return cell.getLocalDateTimeCellValue().toLocalDate().toString();
-                } else {
-                    double value = cell.getNumericCellValue();
-                    if (value == Math.floor(value)) {
-                        return String.valueOf((long) value);
-                    } else {
-                        return String.valueOf(value);
-                    }
+                    yield cell.getLocalDateTimeCellValue().toLocalDate().toString();
                 }
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            default:
-                return null;
-        }
+                double value = cell.getNumericCellValue();
+                if (value == Math.floor(value)) {
+                    yield String.valueOf((long) value);
+                }
+                yield String.valueOf(value);
+            }
+            case BOOLEAN -> String.valueOf(cell.getBooleanCellValue());
+            default -> null;
+        };
     }
 }

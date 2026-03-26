@@ -74,4 +74,12 @@ public class UserService {
     public List<User> findByRole(String role) {
         return userMapper.findByRole(role);
     }
+
+    public List<User> findMessagingDirectory(Long currentUserId) {
+        return userMapper.findAll().stream()
+            .filter(user -> user.getStatus() != null && user.getStatus() == 1)
+            .filter(user -> currentUserId == null || !user.getId().equals(currentUserId))
+            .peek(user -> user.setPassword(null))
+            .toList();
+    }
 }
