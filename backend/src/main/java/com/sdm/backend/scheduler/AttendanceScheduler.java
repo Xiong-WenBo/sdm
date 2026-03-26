@@ -106,7 +106,7 @@ public class AttendanceScheduler {
     private List<Attendance> getAbsentWithoutLeaveStudents(Long buildingId, LocalDate checkDate) {
         // 查询未归学生
         List<Attendance> absentStudents = attendanceService.findByPageAndFilters(
-            1, 1000, null, buildingId, checkDate, "EVENING", "ABSENT"
+            1, 1000, null, buildingId, checkDate, "EVENING", "ABSENT", null
         );
         
         if (absentStudents.isEmpty()) {

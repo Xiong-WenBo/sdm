@@ -1,6 +1,7 @@
 package com.sdm.backend.service;
 
 import com.sdm.backend.entity.Attendance;
+import com.sdm.backend.entity.Building;
 import com.sdm.backend.mapper.AttendanceMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,12 @@ public class AttendanceService {
     @Autowired
     private AttendanceMapper attendanceMapper;
 
+    @Autowired
+    private StudentService studentService;
+
+    @Autowired
+    private BuildingService buildingService;
+
     public List<Attendance> findAll() {
         return attendanceMapper.findAll();
     }
@@ -24,18 +31,20 @@ public class AttendanceService {
         return attendanceMapper.findByPage(offset, size);
     }
 
-    public List<Attendance> findByPageAndFilters(int page, int size, Long studentId, Long buildingId, 
-                                                  LocalDate checkDate, String checkTime, String status) {
+    public List<Attendance> findByPageAndFilters(int page, int size, Long studentId, Long buildingId,
+                                                 LocalDate checkDate, String checkTime, String status,
+                                                 Long counselorId) {
         int offset = (page - 1) * size;
-        return attendanceMapper.findByPageAndFilters(offset, size, studentId, buildingId, checkDate, checkTime, status);
+        return attendanceMapper.findByPageAndFilters(offset, size, studentId, buildingId, checkDate, checkTime, status, counselorId);
     }
 
     public int countAll() {
         return attendanceMapper.countAll();
     }
 
-    public int countByFilters(Long studentId, Long buildingId, LocalDate checkDate, String checkTime, String status) {
-        return attendanceMapper.countByFilters(studentId, buildingId, checkDate, checkTime, status);
+    public int countByFilters(Long studentId, Long buildingId, LocalDate checkDate, String checkTime, String status,
+                              Long counselorId) {
+        return attendanceMapper.countByFilters(studentId, buildingId, checkDate, checkTime, status, counselorId);
     }
 
     public Attendance findById(Long id) {
@@ -71,5 +80,30 @@ public class AttendanceService {
 
     public List<Attendance> findStudentsByCounselor(Long counselorId) {
         return attendanceMapper.findStudentsByCounselor(counselorId);
+    }
+
+    public List<Building> findAccessibleBuildings(String role, Long userId) {
+        if ("DORM_ADMIN".equals(role)) {
+            Building building = buildingService.findByAdminUserId(userId);
+            return building == null ? List.of() : List.of(building);
+        }
+
+        if ("SUPER_ADMIN".equals(role)) {
+            return buildingService.findAll();
+        }
+
+        return List.of();
+    }
+
+    public List<Attendance> findStudentsForCheckIn(String role, Long userId, Long buildingId) {
+        if ("COUNSELOR".equals(role)) {
+            return attendanceMapper.findStudentsByCounselor(userId);
+        }
+
+        if (buildingId == null) {
+            return List.of();
+        }
+
+        return attendanceMapper.findStudentsInBuilding(buildingId);
     }
 }
