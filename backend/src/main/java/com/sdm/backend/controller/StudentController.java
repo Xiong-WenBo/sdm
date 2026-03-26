@@ -91,6 +91,23 @@ public class StudentController {
         return ResponseEntity.ok(Result.success(result));
     }
 
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<Result<Student>> getCurrentStudent() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        com.sdm.backend.entity.User user = studentService.findByUsername(username);
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(401, "Not logged in"));
+        }
+
+        Student student = studentService.findByUserId(user.getId());
+        if (student == null) {
+            return ResponseEntity.ok(Result.error(404, "Student profile not found"));
+        }
+        return ResponseEntity.ok(Result.success(student));
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('COUNSELOR')")
     @Log(module = "STUDENT", operation = "CREATE", description = "新增学生")

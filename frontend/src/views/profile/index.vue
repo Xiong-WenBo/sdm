@@ -1,7 +1,6 @@
 <template>
     <div class="profile">
         <el-row :gutter="20">
-            <!-- 个人信息卡片 -->
             <el-col :span="12">
                 <el-card>
                     <template #header>
@@ -27,7 +26,6 @@
                 </el-card>
             </el-col>
 
-            <!-- 学生信息卡片（仅学生角色显示） -->
             <el-col :span="12" v-if="userInfo.role === 'STUDENT' && studentInfo">
                 <el-card>
                     <template #header>
@@ -45,7 +43,6 @@
             </el-col>
         </el-row>
 
-        <!-- 安全设置 -->
         <el-card style="margin-top: 20px">
             <template #header>
                 <div class="card-header">
@@ -55,13 +52,12 @@
             <div class="security-item">
                 <div class="security-info">
                     <span class="label">登录密码</span>
-                    <span class="desc">定期修改密码可以提高账户安全性</span>
+                    <span class="desc">定期修改密码可以提升账户安全性。</span>
                 </div>
                 <el-button type="primary" @click="showPasswordDialog = true">修改密码</el-button>
             </div>
         </el-card>
 
-        <!-- 修改密码弹窗 -->
         <el-dialog
             v-model="showPasswordDialog"
             title="修改密码"
@@ -105,7 +101,6 @@
             </template>
         </el-dialog>
 
-        <!-- 修改手机/邮箱弹窗 -->
         <el-dialog
             v-model="showContactDialog"
             :title="editType === 'phone' ? '修改手机号' : '修改邮箱'"
@@ -133,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from '@/utils/axios'
 import { Role, RoleName } from '@/utils/constants'
@@ -218,22 +213,20 @@ const getRoleType = (role) => {
 
 const loadUserInfo = async () => {
     try {
-        const userId = localStorage.getItem('userId')
-        if (!userId) return
-        
-        const res = await axios.get(`/api/user/${userId}`)
+        const res = await axios.get('/api/user/current')
         userInfo.value = res.data
         contactForm.phone = res.data.phone || ''
         contactForm.email = res.data.email || ''
-        
-        // 如果是学生，加载学生信息
+
         if (res.data.role === 'STUDENT') {
             try {
-                const studentRes = await axios.get(`/api/student/${userId}`)
+                const studentRes = await axios.get('/api/student/me')
                 studentInfo.value = studentRes.data
             } catch (error) {
-                console.log('未找到学生信息')
+                studentInfo.value = null
             }
+        } else {
+            studentInfo.value = null
         }
     } catch (error) {
         console.error('加载用户信息失败:', error)
@@ -247,10 +240,10 @@ const handleEdit = (type) => {
 
 const handleUpdateContact = async () => {
     if (!contactFormRef.value) return
-    
+
     await contactFormRef.value.validate(async (valid) => {
         if (!valid) return
-        
+
         updating.value = true
         try {
             const updateData = {}
@@ -259,7 +252,7 @@ const handleUpdateContact = async () => {
             } else {
                 updateData.email = contactForm.email
             }
-            
+
             await axios.put(`/api/user/profile/${userInfo.value.id}`, updateData)
             ElMessage.success('修改成功')
             showContactDialog.value = false
@@ -274,10 +267,10 @@ const handleUpdateContact = async () => {
 
 const handleChangePassword = async () => {
     if (!passwordFormRef.value) return
-    
+
     await passwordFormRef.value.validate(async (valid) => {
         if (!valid) return
-        
+
         changing.value = true
         try {
             await axios.put(`/api/user/password/${userInfo.value.id}`, {
@@ -289,7 +282,7 @@ const handleChangePassword = async () => {
             setTimeout(() => {
                 localStorage.clear()
                 window.location.reload()
-            }, 1500)
+            }, 1000)
         } catch (error) {
             console.error('修改密码失败:', error)
         } finally {
