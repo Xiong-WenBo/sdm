@@ -20,7 +20,7 @@
     </resultMap>
 
     <select id="findByUserId" resultMap="BaseResultMap">
-        SELECT m.*, u.username, u.real_name, s.username as sender_name
+        SELECT m.*, u.username, u.real_name, s.real_name as sender_name
         FROM message m
         LEFT JOIN user u ON m.user_id = u.id
         LEFT JOIN user s ON m.sender_id = s.id
@@ -29,7 +29,7 @@
     </select>
 
     <select id="findByUserIdAndStatus" resultMap="BaseResultMap">
-        SELECT m.*, u.username, u.real_name, s.username as sender_name
+        SELECT m.*, u.username, u.real_name, s.real_name as sender_name
         FROM message m
         LEFT JOIN user u ON m.user_id = u.id
         LEFT JOIN user s ON m.sender_id = s.id
@@ -38,7 +38,7 @@
     </select>
 
     <select id="findByUserIdAndCategory" resultMap="BaseResultMap">
-        SELECT m.*, u.username, u.real_name, s.username as sender_name
+        SELECT m.*, u.username, u.real_name, s.real_name as sender_name
         FROM message m
         LEFT JOIN user u ON m.user_id = u.id
         LEFT JOIN user s ON m.sender_id = s.id
@@ -47,7 +47,7 @@
     </select>
 
     <select id="findByUserIdWithFilters" resultMap="BaseResultMap">
-        SELECT m.*, u.username, u.real_name, s.username as sender_name
+        SELECT m.*, u.username, u.real_name, s.real_name as sender_name
         FROM message m
         LEFT JOIN user u ON m.user_id = u.id
         LEFT JOIN user s ON m.sender_id = s.id
@@ -76,7 +76,7 @@
     </select>
 
     <select id="findById" resultMap="BaseResultMap">
-        SELECT m.*, u.username, u.real_name, s.username as sender_name
+        SELECT m.*, u.username, u.real_name, s.real_name as sender_name
         FROM message m
         LEFT JOIN user u ON m.user_id = u.id
         LEFT JOIN user s ON m.sender_id = s.id

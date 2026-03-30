@@ -484,10 +484,11 @@ const handleReplyFromView = () => {
 
 const loadUserList = async () => {
     try {
-        const res = await axios.get('/api/user/list', {
-            params: { page: 1, size: 1000 }
-        })
-        userList.value = res.data.list || []
+        const res = await axios.get('/api/user/directory')
+        userList.value = res.data || []
+        if (selectedUserId.value) {
+            messageForm.userId = selectedUserId.value
+        }
     } catch (error) {
         console.error('加载用户列表失败:', error)
     }

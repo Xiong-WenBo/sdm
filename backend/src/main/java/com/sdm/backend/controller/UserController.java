@@ -91,6 +91,16 @@ public class UserController {
         return ResponseEntity.ok(Result.success(result));
     }
 
+    @GetMapping("/directory")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
+    public ResponseEntity<Result<List<User>>> getUserDirectory() {
+        User currentUser = getAuthenticatedUser();
+        if (currentUser == null) {
+            return ResponseEntity.ok(Result.error(401, "Unauthorized"));
+        }
+        return ResponseEntity.ok(Result.success(userService.findMessagingDirectory(currentUser.getId())));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
     public ResponseEntity<Result<User>> getUserById(@PathVariable Long id) {
