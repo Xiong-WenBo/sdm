@@ -55,14 +55,11 @@ class RepairControllerTest {
 
         Repair pending = new Repair();
         pending.setStatus("PENDING");
-        Repair completed = new Repair();
-        completed.setStatus("COMPLETED");
-
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("admin", "token")
         );
         when(studentService.findByUsername("admin")).thenReturn(user);
-        when(repairService.findAll()).thenReturn(List.of(pending, completed));
+        when(repairService.findAllByStatus("PENDING")).thenReturn(List.of(pending));
 
         Result<List<Repair>> result = repairController.getBuildingRepairs("PENDING").getBody();
 
