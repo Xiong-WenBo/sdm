@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${SDM_DATASOURCE_URL:jdbc:mysql://localhost:3306/sdm?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
-    username: ${SDM_DATASOURCE_USERNAME:root}
-    password: ${SDM_DATASOURCE_PASSWORD:}
+    url: ${SDM_DATASOURCE_URL:${DB_URL:jdbc:mysql://localhost:3306/sdm?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}}
+    username: ${SDM_DATASOURCE_USERNAME:${DB_USERNAME:root}}
+    password: ${SDM_DATASOURCE_PASSWORD:${DB_PASSWORD:}}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 mybatis:
@@ -12,8 +12,8 @@ mybatis:
     map-underscore-to-camel-case: true
 
 jwt:
-  secret: ${SDM_JWT_SECRET:change-this-secret-in-production-change-this-secret}
-  expiration: ${SDM_JWT_EXPIRATION:86400000}
+  secret: ${SDM_JWT_SECRET:${JWT_SECRET:change-this-jwt-secret-in-production-please}}
+  expiration: ${SDM_JWT_EXPIRATION:${JWT_EXPIRATION:86400000}}
 
 app:
   student:
