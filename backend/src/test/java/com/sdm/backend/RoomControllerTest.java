@@ -1,16 +1,22 @@
 package com.sdm.backend;
 
 import com.sdm.backend.controller.RoomController;
+import com.sdm.backend.dto.BulkCreateRoomsRequest;
+import com.sdm.backend.entity.Building;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Room;
+import com.sdm.backend.entity.User;
 import com.sdm.backend.service.BuildingService;
 import com.sdm.backend.service.RoomService;
 import com.sdm.backend.service.UserService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,6 +38,11 @@ class RoomControllerTest {
 
     @InjectMocks
     private RoomController roomController;
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void updateRoomShouldRejectCapacityBelowOccupancy() {
@@ -67,5 +78,34 @@ class RoomControllerTest {
         assertNotNull(result);
         assertEquals(400, result.getCode());
         verify(roomService, never()).deleteById(8L);
+    }
+
+    @Test
+    void bulkCreateRoomsShouldRejectOtherBuildingsForDormAdmin() {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("dorm01", null)
+        );
+
+        User dormAdmin = new User();
+        dormAdmin.setId(10L);
+        dormAdmin.setRole("DORM_ADMIN");
+
+        Building building = new Building();
+        building.setId(1L);
+
+        BulkCreateRoomsRequest request = new BulkCreateRoomsRequest();
+        request.setBuildingId(2L);
+        request.setTotalFloors(2);
+        request.setRoomsPerFloor(3);
+        request.setCapacity(4);
+
+        when(userService.findByUsername("dorm01")).thenReturn(dormAdmin);
+        when(buildingService.findByAdminUserId(10L)).thenReturn(building);
+
+        Result<Void> result = roomController.bulkCreateRooms(request).getBody();
+
+        assertNotNull(result);
+        assertEquals(403, result.getCode());
+        verify(roomService, never()).bulkCreate(2L, 2, 3, 4, null, null);
     }
 }

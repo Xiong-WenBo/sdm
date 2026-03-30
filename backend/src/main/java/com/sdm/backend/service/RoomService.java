@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 @Service
 public class RoomService {
@@ -106,5 +108,56 @@ public class RoomService {
     public int countTotalOccupancy() {
         List<Room> rooms = roomMapper.findAll();
         return rooms.stream().mapToInt(r -> r.getCurrentOccupancy() != null ? r.getCurrentOccupancy() : 0).sum();
+    }
+
+    @Transactional
+    public int bulkCreate(Long buildingId, Integer totalFloors, Integer roomsPerFloor, Integer capacity, String gender, String status) {
+        if (buildingId == null) {
+            throw new IllegalArgumentException("Building is required");
+        }
+        if (totalFloors == null || totalFloors < 1) {
+            throw new IllegalArgumentException("Total floors must be greater than 0");
+        }
+        if (roomsPerFloor == null || roomsPerFloor < 1) {
+            throw new IllegalArgumentException("Rooms per floor must be greater than 0");
+        }
+        if (capacity == null || capacity < 1) {
+            throw new IllegalArgumentException("Capacity must be greater than 0");
+        }
+
+        List<Room> existingRooms = roomMapper.findByBuildingId(buildingId);
+        Set<String> existingRoomNumbers = new HashSet<>();
+        for (Room room : existingRooms) {
+            existingRoomNumbers.add(room.getRoomNumber());
+        }
+
+        int roomNumberWidth = Math.max(2, String.valueOf(roomsPerFloor).length());
+        Set<String> generatedRoomNumbers = new HashSet<>();
+
+        for (int floor = 1; floor <= totalFloors; floor++) {
+            for (int index = 1; index <= roomsPerFloor; index++) {
+                String roomNumber = floor + String.format("%0" + roomNumberWidth + "d", index);
+                if (!generatedRoomNumbers.add(roomNumber) || existingRoomNumbers.contains(roomNumber)) {
+                    throw new IllegalArgumentException("Room number already exists: " + roomNumber);
+                }
+            }
+        }
+
+        int createdCount = 0;
+        for (int floor = 1; floor <= totalFloors; floor++) {
+            for (int index = 1; index <= roomsPerFloor; index++) {
+                Room room = new Room();
+                room.setBuildingId(buildingId);
+                room.setRoomNumber(floor + String.format("%0" + roomNumberWidth + "d", index));
+                room.setFloor(floor);
+                room.setCapacity(capacity);
+                room.setCurrentOccupancy(0);
+                room.setGender(gender == null || gender.isBlank() ? "UNISEX" : gender);
+                room.setStatus(status == null || status.isBlank() ? "AVAILABLE" : status);
+                createdCount += roomMapper.insert(room);
+            }
+        }
+
+        return createdCount;
     }
 }

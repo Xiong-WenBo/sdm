@@ -4,10 +4,16 @@
             <template #header>
                 <div class="card-header">
                     <span>房间管理</span>
-                    <el-button type="primary" @click="handleAdd">
-                        <el-icon><Plus /></el-icon>
-                        新增房间
-                    </el-button>
+                    <div class="header-actions">
+                        <el-button type="success" @click="handleBulkCreate">
+                            <el-icon><Plus /></el-icon>
+                            批量生成房间
+                        </el-button>
+                        <el-button type="primary" @click="handleAdd">
+                            <el-icon><Plus /></el-icon>
+                            新增房间
+                        </el-button>
+                    </div>
                 </div>
             </template>
 
@@ -169,11 +175,75 @@
                 <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
             </template>
         </el-dialog>
+
+        <el-dialog
+            v-model="bulkDialogVisible"
+            title="批量生成房间"
+            width="620px"
+            @close="handleBulkDialogClose"
+        >
+            <el-form
+                ref="bulkFormRef"
+                :model="bulkForm"
+                :rules="bulkFormRules"
+                label-width="120px"
+            >
+                <el-form-item label="所属楼栋" prop="buildingId">
+                    <el-select
+                        v-model="bulkForm.buildingId"
+                        placeholder="请选择楼栋"
+                        filterable
+                        style="width: 100%"
+                        :disabled="userRole === 'DORM_ADMIN' && userBuildingId !== null"
+                    >
+                        <el-option
+                            v-for="building in buildingList"
+                            :key="building.id"
+                            :label="building.name"
+                            :value="building.id"
+                        />
+                    </el-select>
+                </el-form-item>
+                <el-form-item label="总楼层" prop="totalFloors">
+                    <el-input-number v-model="bulkForm.totalFloors" :min="1" :max="100" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="每层房间数" prop="roomsPerFloor">
+                    <el-input-number v-model="bulkForm.roomsPerFloor" :min="1" :max="200" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="房间容量" prop="capacity">
+                    <el-input-number v-model="bulkForm.capacity" :min="1" :max="20" style="width: 100%" />
+                </el-form-item>
+                <el-form-item label="性别限制" prop="gender">
+                    <el-radio-group v-model="bulkForm.gender">
+                        <el-radio label="MALE">男</el-radio>
+                        <el-radio label="FEMALE">女</el-radio>
+                        <el-radio label="UNISEX">不限</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+                <el-form-item label="初始状态" prop="status">
+                    <el-radio-group v-model="bulkForm.status">
+                        <el-radio label="AVAILABLE">可住</el-radio>
+                        <el-radio label="MAINTENANCE">维修</el-radio>
+                    </el-radio-group>
+                </el-form-item>
+            </el-form>
+            <el-alert
+                title="房号规则"
+                type="info"
+                show-icon
+                :closable="false"
+                description="系统按“楼层 + 两位房间序号”生成房号，例如 101、102、201。若楼栋下已有重复房号，则整批拒绝创建。"
+            />
+            <template #footer>
+                <el-button @click="bulkDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="handleBulkSubmit" :loading="submitting">确定</el-button>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
@@ -182,9 +252,11 @@ import Pagination from '@/components/Pagination.vue'
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
+const bulkDialogVisible = ref(false)
 const dialogTitle = ref('新增房间')
 const isEdit = ref(false)
 const roomFormRef = ref(null)
+const bulkFormRef = ref(null)
 
 const userRole = localStorage.getItem('role')
 
@@ -214,56 +286,52 @@ const roomForm = reactive({
     status: 'AVAILABLE'
 })
 
+const bulkForm = reactive({
+    buildingId: null,
+    totalFloors: 1,
+    roomsPerFloor: 10,
+    capacity: 4,
+    gender: 'UNISEX',
+    status: 'AVAILABLE'
+})
+
 const roomFormRules = {
-    buildingId: [
-        { required: true, message: '请选择所属楼栋', trigger: 'change' }
-    ],
-    roomNumber: [
-        { required: true, message: '请输入房间号', trigger: 'blur' }
-    ],
-    floor: [
-        { required: true, message: '请输入楼层', trigger: 'blur' }
-    ],
-    capacity: [
-        { required: true, message: '请输入可住人数', trigger: 'blur' }
-    ]
+    buildingId: [{ required: true, message: '请选择所属楼栋', trigger: 'change' }],
+    roomNumber: [{ required: true, message: '请输入房间号', trigger: 'blur' }],
+    floor: [{ required: true, message: '请输入楼层', trigger: 'blur' }],
+    capacity: [{ required: true, message: '请输入可住人数', trigger: 'blur' }]
 }
 
-const getGenderType = (gender) => {
-    const typeMap = {
-        MALE: 'primary',
-        FEMALE: 'danger',
-        UNISEX: 'info'
-    }
-    return typeMap[gender] || 'info'
+const bulkFormRules = {
+    buildingId: [{ required: true, message: '请选择所属楼栋', trigger: 'change' }],
+    totalFloors: [{ required: true, message: '请输入总楼层', trigger: 'blur' }],
+    roomsPerFloor: [{ required: true, message: '请输入每层房间数', trigger: 'blur' }],
+    capacity: [{ required: true, message: '请输入房间容量', trigger: 'blur' }]
 }
 
-const getGenderText = (gender) => {
-    const textMap = {
-        MALE: '男',
-        FEMALE: '女',
-        UNISEX: '不限'
-    }
-    return textMap[gender] || gender
-}
+const getGenderType = (gender) => ({
+    MALE: 'primary',
+    FEMALE: 'danger',
+    UNISEX: 'info'
+}[gender] || 'info')
 
-const getStatusType = (status) => {
-    const typeMap = {
-        AVAILABLE: 'success',
-        FULL: 'warning',
-        MAINTENANCE: 'danger'
-    }
-    return typeMap[status] || 'info'
-}
+const getGenderText = (gender) => ({
+    MALE: '男',
+    FEMALE: '女',
+    UNISEX: '不限'
+}[gender] || gender)
 
-const getStatusText = (status) => {
-    const textMap = {
-        AVAILABLE: '可住',
-        FULL: '已满',
-        MAINTENANCE: '维修'
-    }
-    return textMap[status] || status
-}
+const getStatusType = (status) => ({
+    AVAILABLE: 'success',
+    FULL: 'warning',
+    MAINTENANCE: 'danger'
+}[status] || 'info')
+
+const getStatusText = (status) => ({
+    AVAILABLE: '可住',
+    FULL: '已满',
+    MAINTENANCE: '维修'
+}[status] || status)
 
 const loadRoomList = async () => {
     loading.value = true
@@ -293,6 +361,7 @@ const loadBuildingList = async () => {
         if (userRole === 'DORM_ADMIN' && buildingList.value.length > 0) {
             userBuildingId.value = buildingList.value[0].id
             searchForm.buildingId = buildingList.value[0].id
+            bulkForm.buildingId = buildingList.value[0].id
         }
     } catch (error) {
         console.error('加载楼栋列表失败:', error)
@@ -313,12 +382,17 @@ const handleReset = () => {
 const handleAdd = () => {
     dialogTitle.value = '新增房间'
     isEdit.value = false
-
     if (userRole === 'DORM_ADMIN' && userBuildingId.value) {
         roomForm.buildingId = userBuildingId.value
     }
-
     dialogVisible.value = true
+}
+
+const handleBulkCreate = () => {
+    if (userRole === 'DORM_ADMIN' && userBuildingId.value) {
+        bulkForm.buildingId = userBuildingId.value
+    }
+    bulkDialogVisible.value = true
 }
 
 const handleEdit = (row) => {
@@ -350,7 +424,7 @@ const handleDelete = (row) => {
             ElMessage.success('删除成功')
             loadRoomList()
         } catch (error) {
-            console.error('删除失败:', error)
+            console.error('删除房间失败:', error)
         }
     }).catch(() => {})
 }
@@ -373,7 +447,27 @@ const handleSubmit = async () => {
             dialogVisible.value = false
             loadRoomList()
         } catch (error) {
-            console.error('提交失败:', error)
+            console.error('提交房间失败:', error)
+        } finally {
+            submitting.value = false
+        }
+    })
+}
+
+const handleBulkSubmit = async () => {
+    if (!bulkFormRef.value) return
+
+    await bulkFormRef.value.validate(async (valid) => {
+        if (!valid) return
+
+        submitting.value = true
+        try {
+            await axios.post('/api/room/bulk', bulkForm)
+            ElMessage.success('批量生成成功')
+            bulkDialogVisible.value = false
+            loadRoomList()
+        } catch (error) {
+            console.error('批量生成房间失败:', error)
         } finally {
             submitting.value = false
         }
@@ -392,13 +486,18 @@ const handleDialogClose = () => {
     roomForm.status = 'AVAILABLE'
 }
 
-const handleSizeChange = () => {
-    loadRoomList()
+const handleBulkDialogClose = () => {
+    bulkFormRef.value?.resetFields()
+    bulkForm.buildingId = userRole === 'DORM_ADMIN' ? userBuildingId.value : null
+    bulkForm.totalFloors = 1
+    bulkForm.roomsPerFloor = 10
+    bulkForm.capacity = 4
+    bulkForm.gender = 'UNISEX'
+    bulkForm.status = 'AVAILABLE'
 }
 
-const handlePageChange = () => {
-    loadRoomList()
-}
+const handleSizeChange = () => loadRoomList()
+const handlePageChange = () => loadRoomList()
 
 onMounted(async () => {
     await loadBuildingList()
@@ -415,6 +514,14 @@ onMounted(async () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .search-form {
