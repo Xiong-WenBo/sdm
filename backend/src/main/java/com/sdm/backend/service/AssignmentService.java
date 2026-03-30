@@ -1,13 +1,19 @@
 package com.sdm.backend.service;
 
 import com.sdm.backend.entity.Assignment;
+import com.sdm.backend.entity.Room;
+import com.sdm.backend.entity.Student;
 import com.sdm.backend.mapper.AssignmentMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class AssignmentService {
@@ -17,6 +23,9 @@ public class AssignmentService {
 
     @Autowired
     private RoomService roomService;
+
+    @Autowired
+    private StudentService studentService;
 
     public List<Assignment> findAll() {
         return assignmentMapper.findAll();
@@ -134,5 +143,80 @@ public class AssignmentService {
 
     private boolean isActive(Assignment assignment) {
         return "ACTIVE".equals(assignment.getStatus());
+    }
+
+    @Transactional
+    public Map<String, Object> bulkAutoAssign(Long buildingId, LocalDate checkInDate, Long createdBy) {
+        if (buildingId == null) {
+            throw new IllegalArgumentException("Building is required");
+        }
+
+        List<Student> candidates = studentService.findUnassignedForDormAssignment();
+        List<Room> rooms = roomService.findByBuildingId(buildingId).stream()
+                .filter(room -> room.getCapacity() != null && room.getCapacity() > 0)
+                .filter(room -> room.getCurrentOccupancy() == null || room.getCurrentOccupancy() == 0)
+                .filter(room -> "AVAILABLE".equals(room.getStatus()))
+                .sorted(Comparator
+                        .comparing((Room room) -> room.getFloor() == null ? Integer.MAX_VALUE : room.getFloor())
+                        .thenComparing(room -> room.getRoomNumber() == null ? "" : room.getRoomNumber()))
+                .toList();
+
+        Map<String, List<Student>> groupedStudents = new LinkedHashMap<>();
+        for (Student student : candidates) {
+            String key = (student.getClassName() == null ? "" : student.getClassName().trim())
+                    + "||"
+                    + (student.getMajor() == null ? "" : student.getMajor().trim());
+            groupedStudents.computeIfAbsent(key, ignored -> new ArrayList<>()).add(student);
+        }
+
+        int roomIndex = 0;
+        int assignedCount = 0;
+        int usedRooms = 0;
+        LocalDate assignmentDate = checkInDate != null ? checkInDate : LocalDate.now();
+
+        outer:
+        for (List<Student> group : groupedStudents.values()) {
+            if (roomIndex >= rooms.size()) {
+                break;
+            }
+
+            Room currentRoom = rooms.get(roomIndex);
+            usedRooms++;
+            int nextBed = 1;
+
+            for (Student student : group) {
+                if (nextBed > currentRoom.getCapacity()) {
+                    roomIndex++;
+                    if (roomIndex >= rooms.size()) {
+                        break outer;
+                    }
+                    currentRoom = rooms.get(roomIndex);
+                    usedRooms++;
+                    nextBed = 1;
+                }
+
+                Assignment assignment = new Assignment();
+                assignment.setStudentId(student.getId());
+                assignment.setRoomId(currentRoom.getId());
+                assignment.setBedNumber("A" + nextBed);
+                assignment.setCheckInDate(assignmentDate);
+                assignment.setStatus("ACTIVE");
+                assignment.setCreatedBy(createdBy);
+
+                roomService.incrementOccupancy(currentRoom.getId());
+                assignmentMapper.insert(assignment);
+                assignedCount++;
+                nextBed++;
+            }
+
+            roomIndex++;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("candidateCount", candidates.size());
+        result.put("assignedCount", assignedCount);
+        result.put("unassignedCount", candidates.size() - assignedCount);
+        result.put("usedRooms", usedRooms);
+        return result;
     }
 }

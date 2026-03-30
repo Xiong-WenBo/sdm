@@ -1,7 +1,9 @@
 package com.sdm.backend.controller;
 
+import com.sdm.backend.dto.BulkAssignDormRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Assignment;
+import com.sdm.backend.entity.Building;
 import com.sdm.backend.entity.Room;
 import com.sdm.backend.entity.User;
 import com.sdm.backend.service.AssignmentService;
@@ -20,10 +22,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -57,7 +62,7 @@ class AssignmentControllerTest {
         user.setId(1L);
         user.setUsername("admin01");
         user.setRole("SUPER_ADMIN");
-        when(userService.findByUsername("admin01")).thenReturn(user);
+        lenient().when(userService.findByUsername("admin01")).thenReturn(user);
 
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("admin01", null, List.of())
@@ -128,5 +133,53 @@ class AssignmentControllerTest {
         assertNotNull(response.getBody());
         assertEquals(400, response.getBody().getCode());
         verify(assignmentService, never()).transfer(3L, 22L, "B1");
+    }
+
+    @Test
+    void bulkAutoAssignReturnsSummaryForSuperAdmin() {
+        BulkAssignDormRequest request = new BulkAssignDormRequest();
+        request.setBuildingId(5L);
+        request.setCheckInDate(LocalDate.of(2026, 4, 1));
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("candidateCount", 8);
+        summary.put("assignedCount", 8);
+        summary.put("unassignedCount", 0);
+        summary.put("usedRooms", 2);
+        when(assignmentService.bulkAutoAssign(5L, LocalDate.of(2026, 4, 1), 1L)).thenReturn(summary);
+
+        ResponseEntity<Result<Map<String, Object>>> response = controller.bulkAutoAssign(request);
+
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getCode());
+        assertEquals(8, response.getBody().getData().get("assignedCount"));
+        verify(assignmentService).bulkAutoAssign(5L, LocalDate.of(2026, 4, 1), 1L);
+    }
+
+    @Test
+    void bulkAutoAssignRejectsCrossBuildingRequestForDormAdmin() {
+        User user = new User();
+        user.setId(2L);
+        user.setUsername("dorm01");
+        user.setRole("DORM_ADMIN");
+        when(userService.findByUsername("dorm01")).thenReturn(user);
+
+        Building building = new Building();
+        building.setId(10L);
+        when(buildingService.findByAdminUserId(2L)).thenReturn(building);
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("dorm01", null, List.of())
+        );
+
+        BulkAssignDormRequest request = new BulkAssignDormRequest();
+        request.setBuildingId(11L);
+        request.setCheckInDate(LocalDate.of(2026, 4, 1));
+
+        ResponseEntity<Result<Map<String, Object>>> response = controller.bulkAutoAssign(request);
+
+        assertNotNull(response.getBody());
+        assertEquals(403, response.getBody().getCode());
+        verify(assignmentService, never()).bulkAutoAssign(11L, LocalDate.of(2026, 4, 1), 2L);
     }
 }

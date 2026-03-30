@@ -50,4 +50,6 @@ public interface StudentMapper {
      * 根据辅导员 ID 查询学生列表
      */
     List<Student> findByCounselorId(@Param("counselorId") Long counselorId);
+
+    List<Student> findUnassignedForDormAssignment();
 }

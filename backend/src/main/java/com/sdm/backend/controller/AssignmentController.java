@@ -1,6 +1,7 @@
 package com.sdm.backend.controller;
 
 import com.sdm.backend.annotation.Log;
+import com.sdm.backend.dto.BulkAssignDormRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Assignment;
 import com.sdm.backend.entity.Building;
@@ -178,6 +179,32 @@ public class AssignmentController {
 
         assignmentService.insert(assignment);
         return ResponseEntity.ok(Result.success(null, "Assignment created successfully"));
+    }
+
+    @PostMapping("/bulk-auto")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ASSIGNMENT", operation = "CREATE", description = "Bulk auto assign dorms")
+    public ResponseEntity<Result<Map<String, Object>>> bulkAutoAssign(@RequestBody BulkAssignDormRequest request) {
+        User currentUser = getCurrentUser();
+        Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
+
+        if (dormAdminBuildingId != null) {
+            if (request.getBuildingId() != null && !request.getBuildingId().equals(dormAdminBuildingId)) {
+                return ResponseEntity.ok(Result.error(403, "Access denied"));
+            }
+            request.setBuildingId(dormAdminBuildingId);
+        }
+
+        try {
+            Map<String, Object> result = assignmentService.bulkAutoAssign(
+                    request.getBuildingId(),
+                    request.getCheckInDate(),
+                    currentUser.getId()
+            );
+            return ResponseEntity.ok(Result.success(result, "Bulk dorm assignment completed"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.ok(Result.error(400, ex.getMessage()));
+        }
     }
 
     @PutMapping("/{id}/checkout")
