@@ -107,12 +107,24 @@
                     <el-input v-model="userForm.realName" placeholder="请输入真实姓名" />
                 </el-form-item>
                 <el-form-item label="角色" prop="role">
-                    <el-select v-model="userForm.role" placeholder="请选择角色" style="width: 100%">
+                    <el-select
+                        v-model="userForm.role"
+                        placeholder="请选择角色"
+                        style="width: 100%"
+                        :disabled="isEdit && originalUserData?.role === 'STUDENT'"
+                    >
                         <el-option label="超级管理员" value="SUPER_ADMIN" />
                         <el-option label="宿舍管理员" value="DORM_ADMIN" />
                         <el-option label="辅导员" value="COUNSELOR" />
                         <el-option label="学生" value="STUDENT" />
                     </el-select>
+                    <el-alert
+                        v-if="isEdit && originalUserData?.role === 'STUDENT'"
+                        type="info"
+                        show-icon
+                        style="margin-top: 10px"
+                        description="学生账号的角色调整请在学生管理模块中处理。"
+                    />
                 </el-form-item>
                 <el-form-item label="状态" prop="status">
                     <el-radio-group v-model="userForm.status">

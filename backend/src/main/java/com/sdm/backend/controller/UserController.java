@@ -6,6 +6,7 @@ import com.sdm.backend.dto.CreateUserRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
 import com.sdm.backend.entity.User;
+import com.sdm.backend.service.BuildingService;
 import com.sdm.backend.service.StudentService;
 import com.sdm.backend.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
+
+    private static final Set<String> ALLOWED_ROLES = Set.of("SUPER_ADMIN", "DORM_ADMIN", "COUNSELOR", "STUDENT");
 
     @Autowired
     private UserService userService;
@@ -36,7 +40,13 @@ public class UserController {
     @Autowired
     private StudentService studentService;
 
+    @Autowired
+    private BuildingService buildingService;
+
     private User getAuthenticatedUser() {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            return null;
+        }
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (principal instanceof String username) {
             return userService.findByUsername(username);
@@ -101,11 +111,11 @@ public class UserController {
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR') or hasRole('STUDENT')")
     public ResponseEntity<Result<User>> getCurrentUser() {
         User user = getAuthenticatedUser();
-        if (user != null) {
-            user.setPassword(null);
-            return ResponseEntity.ok(Result.success(user));
+        if (user == null) {
+            return ResponseEntity.ok(Result.error(401, "Unauthorized"));
         }
-        return ResponseEntity.ok(Result.error(401, "Not logged in"));
+        user.setPassword(null);
+        return ResponseEntity.ok(Result.success(user));
     }
 
     @PostMapping
@@ -118,11 +128,14 @@ public class UserController {
         if (request.getPassword() == null || request.getPassword().isEmpty()) {
             return ResponseEntity.ok(Result.error(400, "Password is required"));
         }
-        if (userService.findByUsername(request.getUsername()) != null) {
-            return ResponseEntity.ok(Result.error(400, "Username already exists"));
+        if (request.getRealName() == null || request.getRealName().isEmpty()) {
+            return ResponseEntity.ok(Result.error(400, "Real name is required"));
         }
-        if (request.getRole() == null || request.getRole().isEmpty()) {
-            return ResponseEntity.ok(Result.error(400, "Role is required"));
+        if (request.getRole() == null || !ALLOWED_ROLES.contains(request.getRole())) {
+            return ResponseEntity.ok(Result.error(400, "Invalid role"));
+        }
+        if (userService.findAnyByUsername(request.getUsername()) != null) {
+            return ResponseEntity.ok(Result.error(400, "Username already exists"));
         }
 
         if ("STUDENT".equals(request.getRole())) {
@@ -138,25 +151,7 @@ public class UserController {
             }
         }
 
-        User user = new User();
-        user.setUsername(request.getUsername());
-        user.setPassword(request.getPassword());
-        user.setRealName(request.getRealName());
-        user.setRole(request.getRole());
-        user.setStatus(request.getStatus() != null ? request.getStatus() : 1);
-        userService.insert(user);
-
-        if ("STUDENT".equals(request.getRole())) {
-            Student student = new Student();
-            student.setUserId(user.getId());
-            student.setStudentNumber(request.getStudentNumber());
-            student.setClassName(request.getClassName());
-            student.setMajor(request.getMajor());
-            student.setCounselorId(request.getCounselorId());
-            student.setEnrollmentDate(request.getEnrollmentDate());
-            studentService.createStudent(student);
-        }
-
+        userService.createUserWithOptionalStudent(request);
         return ResponseEntity.ok(Result.success(null, "User created successfully"));
     }
 
@@ -170,10 +165,18 @@ public class UserController {
         }
 
         if (user.getUsername() != null && !user.getUsername().equals(existingUser.getUsername())) {
-            User usernameExists = userService.findByUsername(user.getUsername());
+            User usernameExists = userService.findAnyByUsername(user.getUsername());
             if (usernameExists != null && !usernameExists.getId().equals(id)) {
                 return ResponseEntity.ok(Result.error(400, "Username already exists"));
             }
+        }
+        if (user.getRole() != null && !ALLOWED_ROLES.contains(user.getRole())) {
+            return ResponseEntity.ok(Result.error(400, "Invalid role"));
+        }
+        if (user.getRole() != null
+                && !user.getRole().equals(existingUser.getRole())
+                && ("STUDENT".equals(existingUser.getRole()) || "STUDENT".equals(user.getRole()))) {
+            return ResponseEntity.ok(Result.error(400, "Student accounts must be managed in the student module"));
         }
 
         user.setId(id);
@@ -189,6 +192,21 @@ public class UserController {
         if (user == null) {
             return ResponseEntity.ok(Result.error(404, "User not found"));
         }
+
+        User currentUser = getAuthenticatedUser();
+        if (currentUser != null && id.equals(currentUser.getId())) {
+            return ResponseEntity.ok(Result.error(400, "Cannot delete the current logged-in user"));
+        }
+        if (studentService.findByUserId(id) != null) {
+            return ResponseEntity.ok(Result.error(400, "Student accounts must be deleted in the student module"));
+        }
+        if (buildingService.findByAdminId(id) != null) {
+            return ResponseEntity.ok(Result.error(400, "Dorm admin is still assigned to a building"));
+        }
+        if ("COUNSELOR".equals(user.getRole()) && !studentService.findByCounselorId(id).isEmpty()) {
+            return ResponseEntity.ok(Result.error(400, "Counselor still has assigned students"));
+        }
+
         userService.deleteById(id);
         return ResponseEntity.ok(Result.success(null, "User deleted successfully"));
     }
@@ -205,15 +223,13 @@ public class UserController {
         if (user == null) {
             return ResponseEntity.ok(Result.error(404, "User not found"));
         }
-
         if (!userService.checkPassword(request.getOldPassword(), user.getPassword())) {
             return ResponseEntity.ok(Result.error(400, "Old password is incorrect"));
         }
 
         user.setPassword(request.getNewPassword());
         userService.update(user);
-
-        return ResponseEntity.ok(Result.success(null, "Password updated successfully"));
+        return ResponseEntity.ok(Result.success(null, "Password changed successfully"));
     }
 
     @PutMapping("/profile/{id}")
@@ -237,7 +253,6 @@ public class UserController {
         }
 
         userService.update(user);
-
         return ResponseEntity.ok(Result.success(null, "Profile updated successfully"));
     }
 }

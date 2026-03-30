@@ -1,10 +1,14 @@
 package com.sdm.backend.service;
 
+import com.sdm.backend.dto.CreateUserRequest;
+import com.sdm.backend.entity.Student;
 import com.sdm.backend.entity.User;
+import com.sdm.backend.mapper.StudentMapper;
 import com.sdm.backend.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -15,10 +19,17 @@ public class UserService {
     private UserMapper userMapper;
 
     @Autowired
+    private StudentMapper studentMapper;
+
+    @Autowired
     private BCryptPasswordEncoder passwordEncoder;
 
     public User findByUsername(String username) {
         return userMapper.findByUsername(username);
+    }
+
+    public User findAnyByUsername(String username) {
+        return userMapper.findAnyByUsername(username);
     }
 
     public User findById(Long id) {
@@ -60,6 +71,30 @@ public class UserService {
         return userMapper.insert(user);
     }
 
+    @Transactional
+    public int createUserWithOptionalStudent(CreateUserRequest request) {
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(request.getPassword());
+        user.setRealName(request.getRealName());
+        user.setRole(request.getRole());
+        user.setStatus(request.getStatus() != null ? request.getStatus() : 1);
+        insert(user);
+
+        if ("STUDENT".equals(request.getRole())) {
+            Student student = new Student();
+            student.setUserId(user.getId());
+            student.setStudentNumber(request.getStudentNumber());
+            student.setClassName(request.getClassName());
+            student.setMajor(request.getMajor());
+            student.setCounselorId(request.getCounselorId());
+            student.setEnrollmentDate(request.getEnrollmentDate());
+            studentMapper.insert(student);
+        }
+
+        return 1;
+    }
+
     public int update(User user) {
         if (user.getPassword() != null && !user.getPassword().isEmpty()) {
             user.setPassword(encodePassword(user.getPassword()));
@@ -77,9 +112,9 @@ public class UserService {
 
     public List<User> findMessagingDirectory(Long currentUserId) {
         return userMapper.findAll().stream()
-            .filter(user -> user.getStatus() != null && user.getStatus() == 1)
-            .filter(user -> currentUserId == null || !user.getId().equals(currentUserId))
-            .peek(user -> user.setPassword(null))
-            .toList();
+                .filter(user -> user.getStatus() != null && user.getStatus() == 1)
+                .filter(user -> currentUserId == null || !user.getId().equals(currentUserId))
+                .peek(user -> user.setPassword(null))
+                .toList();
     }
 }
