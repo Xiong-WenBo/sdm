@@ -46,6 +46,10 @@ public class LeaveRequestService {
         return leaveRequestMapper.insert(leaveRequest);
     }
 
+    public List<LeaveRequest> findOverlappingLeaves(Long studentId, LocalDateTime startTime, LocalDateTime endTime) {
+        return leaveRequestMapper.findOverlappingLeaves(studentId, startTime, endTime);
+    }
+
     @Transactional
     public int update(LeaveRequest leaveRequest) {
         return leaveRequestMapper.update(leaveRequest);
