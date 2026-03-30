@@ -75,6 +75,7 @@ public class DashboardService {
         List<Repair> allRepairs = repairMapper.findAll();
         long pendingRepairs = allRepairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
         stats.put("pendingRepairs", pendingRepairs);
+        stats.put("totalRepairs", allRepairs.size());
         
         // 今日请假统计（过滤非今日数据，同一人合并）
         java.time.LocalDateTime startOfDay = today.atStartOfDay();
@@ -92,6 +93,13 @@ public class DashboardService {
             .count();
         
         stats.put("pendingLeaves", pendingLeaves);
+        long approvedLeaves = allLeaves.stream()
+            .filter(l -> "APPROVED".equals(l.getStatus()))
+            .filter(l -> !(l.getEndTime().isBefore(startOfDay) || l.getStartTime().isAfter(endOfDay)))
+            .map(LeaveRequest::getStudentId)
+            .distinct()
+            .count();
+        stats.put("approvedLeaves", approvedLeaves);
         
         return stats;
     }
@@ -142,6 +150,7 @@ public class DashboardService {
         List<Repair> buildingRepairs = repairMapper.findByBuildingId(buildingId);
         long pendingRepairs = buildingRepairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
         stats.put("pendingRepairs", pendingRepairs);
+        stats.put("totalRepairs", buildingRepairs.size());
         
         // 本楼栋今日请假人数（过滤非今日数据，同一人合并）
         java.time.LocalDateTime startOfDay = today.atStartOfDay();
@@ -276,7 +285,7 @@ public class DashboardService {
     /**
      * 获取近 7 天入住率趋势
      */
-    public Map<String, Object> getOccupancyTrend() {
+    public Map<String, Object> getOccupancyTrend(Long buildingId) {
         Map<String, Object> result = new HashMap<>();
         List<String> dates = new ArrayList<>();
         List<Double> rates = new ArrayList<>();
@@ -289,12 +298,13 @@ public class DashboardService {
             dates.add(date.format(formatter));
             
             // 计算当天的入住率（简化处理，实际应该按天统计）
-            List<Room> rooms = roomMapper.findAll();
+            List<Room> rooms = buildingId == null ? roomMapper.findAll() : roomMapper.findByBuildingId(buildingId);
             int totalCapacity = rooms.stream().mapToInt(r -> r.getCapacity() != null ? r.getCapacity() : 0).sum();
             
-            List<Assignment> assignments = assignmentMapper.findAll();
+            List<Assignment> assignments = buildingId == null ? assignmentMapper.findAll() : assignmentMapper.findByBuildingId(buildingId);
             long occupancy = assignments.stream()
-                .filter(a -> a.getCheckInDate() != null)
+                .filter(a -> "ACTIVE".equals(a.getStatus()))
+                .filter(a -> a.getCheckInDate() != null && !a.getCheckInDate().isAfter(date))
                 .filter(a -> a.getCheckOutDate() == null || a.getCheckOutDate().isAfter(date))
                 .count();
             
@@ -310,12 +320,11 @@ public class DashboardService {
     /**
      * 获取请假类型分布
      */
-    public Map<String, Object> getLeaveTypeDistribution() {
+    public Map<String, Object> getLeaveTypeDistribution(List<LeaveRequest> leaveRequests) {
         Map<String, Object> result = new HashMap<>();
         List<Map<String, Object>> types = new ArrayList<>();
         
-        List<LeaveRequest> allLeaves = leaveRequestMapper.findAll();
-        Map<String, Long> typeCount = allLeaves.stream()
+        Map<String, Long> typeCount = leaveRequests.stream()
             .filter(l -> l.getType() != null)
             .collect(Collectors.groupingBy(LeaveRequest::getType, Collectors.counting()));
         
@@ -333,16 +342,15 @@ public class DashboardService {
     /**
      * 获取查寝情况统计
      */
-    public Map<String, Object> getAttendanceStatus() {
+    public Map<String, Object> getAttendanceStatus(List<Attendance> attendances) {
         Map<String, Object> result = new HashMap<>();
         List<Map<String, Object>> status = new ArrayList<>();
-        
-        LocalDate today = LocalDate.now();
-        List<Attendance> todayAttendances = attendanceMapper.findByDate(today);
-        
-        long normal = todayAttendances.stream().filter(a -> "NORMAL".equals(a.getStatus())).count();
-        long absent = todayAttendances.stream().filter(a -> "ABSENT".equals(a.getStatus())).count();
-        long leave = todayAttendances.stream().filter(a -> "LEAVE".equals(a.getStatus())).count();
+
+        long normal = attendances.stream()
+            .filter(a -> "NORMAL".equals(a.getStatus()) || "PRESENT".equals(a.getStatus()))
+            .count();
+        long absent = attendances.stream().filter(a -> "ABSENT".equals(a.getStatus())).count();
+        long leave = attendances.stream().filter(a -> "LEAVE".equals(a.getStatus())).count();
         
         status.add(createPieItem("正常", normal));
         status.add(createPieItem("未归", absent));
@@ -355,15 +363,13 @@ public class DashboardService {
     /**
      * 获取报修处理统计
      */
-    public Map<String, Object> getRepairStatus() {
+    public Map<String, Object> getRepairStatus(List<Repair> repairs) {
         Map<String, Object> result = new HashMap<>();
         List<Map<String, Object>> status = new ArrayList<>();
-        
-        List<Repair> allRepairs = repairMapper.findAll();
-        
-        long pending = allRepairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
-        long processing = allRepairs.stream().filter(r -> "PROCESSING".equals(r.getStatus())).count();
-        long completed = allRepairs.stream().filter(r -> "COMPLETED".equals(r.getStatus())).count();
+
+        long pending = repairs.stream().filter(r -> "PENDING".equals(r.getStatus())).count();
+        long processing = repairs.stream().filter(r -> "PROCESSING".equals(r.getStatus())).count();
+        long completed = repairs.stream().filter(r -> "COMPLETED".equals(r.getStatus())).count();
         
         status.add(createPieItem("待处理", pending, "#F56C6C"));
         status.add(createPieItem("处理中", processing, "#E6A23C"));
@@ -371,6 +377,30 @@ public class DashboardService {
         
         result.put("status", status);
         return result;
+    }
+
+    public List<LeaveRequest> getAllLeaves() {
+        return leaveRequestMapper.findAll();
+    }
+
+    public List<LeaveRequest> getLeavesByBuildingId(Long buildingId) {
+        return leaveRequestMapper.findByBuildingId(buildingId);
+    }
+
+    public List<LeaveRequest> getLeavesByCounselorId(Long counselorId) {
+        return leaveRequestMapper.findByCounselorId(counselorId);
+    }
+
+    public List<Attendance> getAttendancesByDate(LocalDate date) {
+        return attendanceMapper.findByDate(date);
+    }
+
+    public List<Repair> getAllRepairs() {
+        return repairMapper.findAll();
+    }
+
+    public List<Repair> getRepairsByBuildingId(Long buildingId) {
+        return repairMapper.findByBuildingId(buildingId);
     }
 
     /**

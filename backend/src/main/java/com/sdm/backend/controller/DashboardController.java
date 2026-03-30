@@ -1,7 +1,10 @@
 package com.sdm.backend.controller;
 
 import com.sdm.backend.dto.Result;
+import com.sdm.backend.entity.Attendance;
 import com.sdm.backend.entity.Building;
+import com.sdm.backend.entity.LeaveRequest;
+import com.sdm.backend.entity.Repair;
 import com.sdm.backend.entity.User;
 import com.sdm.backend.service.BuildingService;
 import com.sdm.backend.service.DashboardService;
@@ -15,6 +18,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -34,12 +39,22 @@ public class DashboardController {
     private BuildingService buildingService;
 
     private User getCurrentUser() {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            return null;
+        }
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof String) {
-            String username = (String) principal;
+        if (principal instanceof String username) {
             return userService.findByUsername(username);
         }
         return null;
+    }
+
+    private ResponseEntity<Result<Map<String, Object>>> unauthorized() {
+        return ResponseEntity.ok(Result.error(401, "Unauthorized"));
+    }
+
+    private ResponseEntity<Result<Map<String, Object>>> missingBuilding() {
+        return ResponseEntity.ok(Result.error(404, "Assigned building not found"));
     }
 
     @GetMapping("/stats")
@@ -47,7 +62,7 @@ public class DashboardController {
     public ResponseEntity<Result<Map<String, Object>>> getStats() {
         User currentUser = getCurrentUser();
         if (currentUser == null) {
-            return ResponseEntity.ok(Result.error(401, "未登录"));
+            return unauthorized();
         }
 
         Map<String, Object> stats;
@@ -58,7 +73,7 @@ public class DashboardController {
         } else if ("DORM_ADMIN".equals(role)) {
             Building building = buildingService.findByAdminUserId(currentUser.getId());
             if (building == null) {
-                return ResponseEntity.ok(Result.error(404, "未找到您管理的楼栋"));
+                return missingBuilding();
             }
             stats = dashboardService.getDormAdminStats(building.getId());
         } else if ("COUNSELOR".equals(role)) {
@@ -67,7 +82,7 @@ public class DashboardController {
             Long studentId = studentService.getStudentIdByUserId(currentUser.getId());
             stats = dashboardService.getStudentStats(studentId);
         } else {
-            return ResponseEntity.ok(Result.error(403, "未知角色"));
+            return ResponseEntity.ok(Result.error(403, "Unknown role"));
         }
 
         return ResponseEntity.ok(Result.success(stats));
@@ -76,35 +91,102 @@ public class DashboardController {
     @GetMapping("/occupancy-trend")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
     public ResponseEntity<Result<Map<String, Object>>> getOccupancyTrend() {
-        Map<String, Object> trend = dashboardService.getOccupancyTrend();
-        return ResponseEntity.ok(Result.success(trend));
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return unauthorized();
+        }
+
+        Long buildingId = null;
+        if ("DORM_ADMIN".equals(currentUser.getRole())) {
+            Building building = buildingService.findByAdminUserId(currentUser.getId());
+            if (building == null) {
+                return missingBuilding();
+            }
+            buildingId = building.getId();
+        }
+
+        return ResponseEntity.ok(Result.success(dashboardService.getOccupancyTrend(buildingId)));
     }
 
     @GetMapping("/leave-type-distribution")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Map<String, Object>>> getLeaveTypeDistribution() {
-        Map<String, Object> distribution = dashboardService.getLeaveTypeDistribution();
-        return ResponseEntity.ok(Result.success(distribution));
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return unauthorized();
+        }
+
+        List<LeaveRequest> leaveRequests;
+        if ("DORM_ADMIN".equals(currentUser.getRole())) {
+            Building building = buildingService.findByAdminUserId(currentUser.getId());
+            if (building == null) {
+                return missingBuilding();
+            }
+            leaveRequests = dashboardService.getLeavesByBuildingId(building.getId());
+        } else if ("COUNSELOR".equals(currentUser.getRole())) {
+            leaveRequests = dashboardService.getLeavesByCounselorId(currentUser.getId());
+        } else {
+            leaveRequests = dashboardService.getAllLeaves();
+        }
+
+        return ResponseEntity.ok(Result.success(dashboardService.getLeaveTypeDistribution(leaveRequests)));
     }
 
     @GetMapping("/attendance-status")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN') or hasRole('COUNSELOR')")
     public ResponseEntity<Result<Map<String, Object>>> getAttendanceStatus() {
-        Map<String, Object> status = dashboardService.getAttendanceStatus();
-        return ResponseEntity.ok(Result.success(status));
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return unauthorized();
+        }
+
+        List<Attendance> attendances = dashboardService.getAttendancesByDate(LocalDate.now());
+        if ("DORM_ADMIN".equals(currentUser.getRole())) {
+            Building building = buildingService.findByAdminUserId(currentUser.getId());
+            if (building == null) {
+                return missingBuilding();
+            }
+            String buildingName = building.getName();
+            attendances = attendances.stream()
+                    .filter(attendance -> buildingName != null && buildingName.equals(attendance.getBuildingName()))
+                    .toList();
+        } else if ("COUNSELOR".equals(currentUser.getRole())) {
+            List<Long> studentIds = studentService.findByCounselorId(currentUser.getId()).stream()
+                    .map(student -> student.getId())
+                    .toList();
+            attendances = attendances.stream()
+                    .filter(attendance -> studentIds.contains(attendance.getStudentId()))
+                    .toList();
+        }
+
+        return ResponseEntity.ok(Result.success(dashboardService.getAttendanceStatus(attendances)));
     }
 
     @GetMapping("/repair-status")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
     public ResponseEntity<Result<Map<String, Object>>> getRepairStatus() {
-        Map<String, Object> status = dashboardService.getRepairStatus();
-        return ResponseEntity.ok(Result.success(status));
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            return unauthorized();
+        }
+
+        List<Repair> repairs;
+        if ("DORM_ADMIN".equals(currentUser.getRole())) {
+            Building building = buildingService.findByAdminUserId(currentUser.getId());
+            if (building == null) {
+                return missingBuilding();
+            }
+            repairs = dashboardService.getRepairsByBuildingId(building.getId());
+        } else {
+            repairs = dashboardService.getAllRepairs();
+        }
+
+        return ResponseEntity.ok(Result.success(dashboardService.getRepairStatus(repairs)));
     }
 
     @GetMapping("/building-occupancy")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Result<Map<String, Object>>> getBuildingOccupancy() {
-        Map<String, Object> occupancy = dashboardService.getBuildingOccupancy();
-        return ResponseEntity.ok(Result.success(occupancy));
+        return ResponseEntity.ok(Result.success(dashboardService.getBuildingOccupancy()));
     }
 }
