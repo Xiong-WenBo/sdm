@@ -162,4 +162,22 @@
         WHERE s.counselor_id = #{counselorId}
         ORDER BY s.class_name, s.student_number
     </select>
+
+    <select id="findUnassignedForDormAssignment" resultMap="BaseResultMap">
+        SELECT
+            s.*,
+            u.real_name,
+            u2.real_name as counselor_name,
+            'NONE' as housing_status
+        FROM student s
+        LEFT JOIN user u ON s.user_id = u.id
+        LEFT JOIN user u2 ON s.counselor_id = u2.id
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM assignment a
+            WHERE a.student_id = s.id
+              AND a.status = 'ACTIVE'
+        )
+        ORDER BY s.class_name, s.major, s.student_number
+    </select>
 </mapper>

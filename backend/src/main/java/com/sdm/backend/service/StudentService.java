@@ -37,6 +37,10 @@ public class StudentService {
         return studentMapper.findByCounselorId(counselorId);
     }
 
+    public List<Student> findUnassignedForDormAssignment() {
+        return studentMapper.findUnassignedForDormAssignment();
+    }
+
     public Long getUserIdByStudentId(Long studentId) {
         Student student = studentMapper.findById(studentId);
         return student != null ? student.getUserId() : null;
