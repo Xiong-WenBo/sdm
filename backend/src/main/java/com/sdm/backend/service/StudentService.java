@@ -7,7 +7,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 public class StudentService {
@@ -35,6 +40,90 @@ public class StudentService {
 
     public List<Student> findByCounselorId(Long counselorId) {
         return studentMapper.findByCounselorId(counselorId);
+    }
+
+    public Map<String, Object> bulkAssignCounselors(List<Long> counselorIds, boolean overwriteExisting) {
+        List<com.sdm.backend.entity.User> availableCounselors = userService.findByRole("COUNSELOR").stream()
+                .filter(user -> user.getStatus() != null && user.getStatus() == 1)
+                .filter(user -> counselorIds == null || counselorIds.isEmpty() || counselorIds.contains(user.getId()))
+                .sorted(Comparator.comparing(com.sdm.backend.entity.User::getId))
+                .toList();
+
+        if (availableCounselors.isEmpty()) {
+            throw new IllegalArgumentException("No active counselors available for assignment");
+        }
+
+        List<Student> allStudents = studentMapper.findAll().stream()
+                .sorted(Comparator
+                        .comparing((Student student) -> safeText(student.getClassName()))
+                        .thenComparing(student -> safeText(student.getMajor()))
+                        .thenComparing(student -> safeText(student.getStudentNumber())))
+                .toList();
+
+        List<Student> candidates = allStudents.stream()
+                .filter(student -> overwriteExisting || student.getCounselorId() == null)
+                .toList();
+
+        Set<Long> candidateIds = candidates.stream().map(Student::getId).collect(java.util.stream.Collectors.toSet());
+        Map<Long, Integer> counselorLoads = new LinkedHashMap<>();
+        for (com.sdm.backend.entity.User counselor : availableCounselors) {
+            counselorLoads.put(counselor.getId(), 0);
+        }
+        for (Student student : allStudents) {
+            if (student.getCounselorId() != null
+                    && counselorLoads.containsKey(student.getCounselorId())
+                    && !candidateIds.contains(student.getId())) {
+                counselorLoads.computeIfPresent(student.getCounselorId(), (key, value) -> value + 1);
+            }
+        }
+
+        Map<String, List<Student>> groupedStudents = new LinkedHashMap<>();
+        for (Student student : candidates) {
+            groupedStudents.computeIfAbsent(buildCounselorGroupKey(student), ignored -> new ArrayList<>()).add(student);
+        }
+
+        Map<Long, Integer> assignedByCounselor = new LinkedHashMap<>();
+        for (com.sdm.backend.entity.User counselor : availableCounselors) {
+            assignedByCounselor.put(counselor.getId(), 0);
+        }
+
+        int updatedCount = 0;
+        for (List<Student> group : groupedStudents.values()) {
+            Long selectedCounselorId = availableCounselors.stream()
+                    .map(com.sdm.backend.entity.User::getId)
+                    .min(Comparator
+                            .comparing((Long counselorId) -> counselorLoads.getOrDefault(counselorId, 0))
+                            .thenComparing(Long::longValue))
+                    .orElseThrow(() -> new IllegalArgumentException("No counselor available"));
+
+            for (Student student : group) {
+                studentMapper.updateCounselorById(student.getId(), selectedCounselorId);
+                updatedCount++;
+            }
+
+            int groupSize = group.size();
+            counselorLoads.computeIfPresent(selectedCounselorId, (key, value) -> value + groupSize);
+            assignedByCounselor.computeIfPresent(selectedCounselorId, (key, value) -> value + groupSize);
+        }
+
+        List<Map<String, Object>> counselorSummary = new ArrayList<>();
+        for (com.sdm.backend.entity.User counselor : availableCounselors) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("counselorId", counselor.getId());
+            item.put("counselorName", counselor.getRealName());
+            item.put("assignedStudents", assignedByCounselor.getOrDefault(counselor.getId(), 0));
+            item.put("finalLoad", counselorLoads.getOrDefault(counselor.getId(), 0));
+            counselorSummary.add(item);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("candidateCount", candidates.size());
+        result.put("updatedCount", updatedCount);
+        result.put("counselorCount", availableCounselors.size());
+        result.put("groupCount", groupedStudents.size());
+        result.put("overwriteExisting", overwriteExisting);
+        result.put("counselorAssignments", counselorSummary);
+        return result;
     }
 
     public Long getUserIdByStudentId(Long studentId) {
@@ -143,5 +232,23 @@ public class StudentService {
         java.time.LocalDateTime endOfDay = date.atTime(23, 59, 59);
 
         return studentMapper.findStudentsOnLeave(studentIds, startOfDay, endOfDay);
+    }
+
+    private String buildCounselorGroupKey(Student student) {
+        String className = safeText(student.getClassName());
+        if (!className.isEmpty()) {
+            return "CLASS:" + className;
+        }
+
+        String major = safeText(student.getMajor());
+        if (!major.isEmpty()) {
+            return "MAJOR:" + major;
+        }
+
+        return "STUDENT:" + student.getId();
+    }
+
+    private String safeText(String value) {
+        return value == null ? "" : value.trim();
     }
 }

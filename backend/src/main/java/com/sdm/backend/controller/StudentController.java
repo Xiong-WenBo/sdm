@@ -1,6 +1,7 @@
 package com.sdm.backend.controller;
 
 import com.sdm.backend.annotation.Log;
+import com.sdm.backend.dto.BulkAssignCounselorRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Student;
 import com.sdm.backend.service.StudentService;
@@ -302,6 +303,21 @@ public class StudentController {
             Map<String, Object> result = new HashMap<>();
             result.put("errors", errors);
             return ResponseEntity.ok(Result.error(400, "Validation failed"));
+        }
+    }
+
+    @PostMapping("/bulk-assign-counselors")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @Log(module = "STUDENT", operation = "UPDATE", description = "Bulk assign counselors")
+    public ResponseEntity<Result<Map<String, Object>>> bulkAssignCounselors(@RequestBody BulkAssignCounselorRequest request) {
+        try {
+            Map<String, Object> result = studentService.bulkAssignCounselors(
+                    request.getCounselorIds(),
+                    Boolean.TRUE.equals(request.getOverwriteExisting())
+            );
+            return ResponseEntity.ok(Result.success(result, "Bulk counselor assignment completed"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.ok(Result.error(400, ex.getMessage()));
         }
     }
 
