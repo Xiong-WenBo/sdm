@@ -40,6 +40,10 @@ public class RepairService {
         return repairMapper.findAll();
     }
 
+    public List<Repair> findAllByStatus(String status) {
+        return repairMapper.findAllByStatus(status);
+    }
+
     public Repair findById(Long id) {
         return repairMapper.findById(id);
     }
@@ -69,6 +73,12 @@ public class RepairService {
     public int handleRepair(Long id, Long adminId, String handleNote, String status) {
         Repair repair = repairMapper.findById(id);
         if (repair == null) {
+            return 0;
+        }
+        if (!"PENDING".equals(repair.getStatus()) && !"PROCESSING".equals(repair.getStatus())) {
+            return 0;
+        }
+        if (!"PROCESSING".equals(status) && !"COMPLETED".equals(status) && !"REJECTED".equals(status)) {
             return 0;
         }
         

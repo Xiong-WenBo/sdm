@@ -14,6 +14,8 @@ public interface RepairMapper {
     List<Repair> findByBuildingId(@Param("buildingId") Long buildingId);
     
     List<Repair> findAll();
+
+    List<Repair> findAllByStatus(@Param("status") String status);
     
     Repair findById(@Param("id") Long id);
     
