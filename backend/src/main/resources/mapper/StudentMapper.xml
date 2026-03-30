@@ -180,4 +180,10 @@
         )
         ORDER BY s.class_name, s.major, s.student_number
     </select>
+
+    <update id="updateCounselorById">
+        UPDATE student
+        SET counselor_id = #{counselorId}
+        WHERE id = #{id}
+    </update>
 </mapper>
