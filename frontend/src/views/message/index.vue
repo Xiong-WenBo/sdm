@@ -4,15 +4,15 @@
             <template #header>
                 <div class="card-header">
                     <span>消息中心</span>
-                    <div>
+                    <div class="header-actions">
                         <el-button type="success" @click="handleSendPrivateMessage">
                             <el-icon><ChatDotRound /></el-icon>
                             主动私信
                         </el-button>
-                        <el-button 
-                            type="danger" 
-                            @click="handleSendBroadcast" 
+                        <el-button
                             v-if="currentUser?.role === 'SUPER_ADMIN'"
+                            type="danger"
+                            @click="handleSendBroadcast"
                         >
                             <el-icon><Bell /></el-icon>
                             通知广播
@@ -25,26 +25,43 @@
                 </div>
             </template>
 
-            <!-- 消息类型筛选 -->
             <el-form :inline="true" class="search-form">
                 <el-form-item label="消息状态">
-                    <el-select v-model="filterStatus" placeholder="全部" clearable style="width: 120px" @change="loadMessageList">
+                    <el-select
+                        v-model="filterStatus"
+                        placeholder="全部"
+                        clearable
+                        style="width: 120px"
+                        @change="loadMessageList"
+                    >
                         <el-option label="未读" value="UNREAD" />
                         <el-option label="已读" value="READ" />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="消息分类">
-                    <el-select v-model="filterCategory" placeholder="全部" clearable style="width: 150px" @change="loadMessageList">
-                        <el-option 
-                            v-for="cat in availableCategories" 
-                            :key="cat.value" 
-                            :label="cat.label" 
-                            :value="cat.value" 
+                    <el-select
+                        v-model="filterCategory"
+                        placeholder="全部"
+                        clearable
+                        style="width: 150px"
+                        @change="loadMessageList"
+                    >
+                        <el-option
+                            v-for="cat in availableCategories"
+                            :key="cat.value"
+                            :label="cat.label"
+                            :value="cat.value"
                         />
                     </el-select>
                 </el-form-item>
                 <el-form-item label="消息类型">
-                    <el-select v-model="filterType" placeholder="全部" clearable style="width: 120px" @change="loadMessageList">
+                    <el-select
+                        v-model="filterType"
+                        placeholder="全部"
+                        clearable
+                        style="width: 120px"
+                        @change="loadMessageList"
+                    >
                         <el-option label="查寝" value="ATTENDANCE" />
                         <el-option label="报修" value="REPAIR" />
                         <el-option label="请假" value="LEAVE" />
@@ -58,19 +75,22 @@
                 </el-form-item>
             </el-form>
 
-            <!-- 消息列表 -->
             <el-table :data="messageList" v-loading="loading" border stripe style="width: 100%">
-                <el-table-column prop="title" label="标题" min-width="200">
+                <el-table-column prop="title" label="标题" min-width="220">
                     <template #default="{ row }">
-                        <el-tag v-if="row.status === 'UNREAD'" type="danger" size="small" style="margin-right: 5px">新</el-tag>
-                        <el-tag v-if="row.category === 'REPLY'" type="success" size="small" style="margin-left: 5px">私信</el-tag>
+                        <el-tag v-if="row.status === 'UNREAD'" type="danger" size="small" style="margin-right: 6px">
+                            新
+                        </el-tag>
+                        <el-tag v-if="row.category === 'REPLY'" type="success" size="small" style="margin-right: 6px">
+                            私信
+                        </el-tag>
                         {{ row.title }}
                     </template>
                 </el-table-column>
                 <el-table-column prop="senderName" label="发送人" width="120">
                     <template #default="{ row }">
                         <span v-if="row.senderName">{{ row.senderName }}</span>
-                        <span v-else style="color: #999">系统</span>
+                        <span v-else class="muted-text">系统</span>
                     </template>
                 </el-table-column>
                 <el-table-column prop="type" label="类型" width="100">
@@ -95,24 +115,32 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column label="操作" width="200" fixed="right">
+                <el-table-column label="操作" width="260" fixed="right">
                     <template #default="{ row }">
-                        <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
-                        <el-button 
-                            type="success" 
-                            size="small" 
-                            @click="handleReply(row)" 
-                            v-if="canReply(row)"
-                        >
-                            回复
-                        </el-button>
-                        <el-button type="success" size="small" @click="handleMarkAsRead(row)" v-if="row.status === 'UNREAD'">标为已读</el-button>
-                        <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+                        <div class="action-buttons">
+                            <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
+                            <el-button
+                                v-if="canReply(row)"
+                                type="success"
+                                size="small"
+                                @click="handleReply(row)"
+                            >
+                                回复
+                            </el-button>
+                            <el-button
+                                v-if="row.status === 'UNREAD'"
+                                type="success"
+                                size="small"
+                                @click="handleMarkAsRead(row)"
+                            >
+                                标为已读
+                            </el-button>
+                            <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+                        </div>
                     </template>
                 </el-table-column>
             </el-table>
 
-            <!-- 分页 -->
             <Pagination
                 v-model="pagination.page"
                 v-model:page-size="pagination.size"
@@ -122,7 +150,6 @@
             />
         </el-card>
 
-        <!-- 查看消息弹窗 -->
         <el-dialog
             v-model="viewDialogVisible"
             :title="currentMessage.title"
@@ -131,7 +158,7 @@
             <el-descriptions :column="1" border>
                 <el-descriptions-item label="发送人">
                     <span v-if="currentMessage.senderName">{{ currentMessage.senderName }}</span>
-                    <span v-else style="color: #999">系统</span>
+                    <span v-else class="muted-text">系统</span>
                 </el-descriptions-item>
                 <el-descriptions-item label="消息类型">
                     <el-tag :type="getTypeType(currentMessage.type)">
@@ -143,7 +170,9 @@
                         {{ getCategoryText(currentMessage.category) }}
                     </el-tag>
                 </el-descriptions-item>
-                <el-descriptions-item label="发送时间">{{ currentMessage.sendTime }}</el-descriptions-item>
+                <el-descriptions-item label="发送时间">
+                    {{ currentMessage.sendTime }}
+                </el-descriptions-item>
                 <el-descriptions-item label="状态">
                     <el-tag :type="currentMessage.status === 'UNREAD' ? 'danger' : 'success'" size="small">
                         {{ currentMessage.status === 'UNREAD' ? '未读' : '已读' }}
@@ -155,25 +184,26 @@
             </el-descriptions>
             <template #footer>
                 <el-button @click="viewDialogVisible = false">关闭</el-button>
-                <el-button 
-                    type="success" 
-                    @click="handleReplyFromView" 
-                    v-if="canReply(currentMessage)"
-                >
+                <el-button v-if="canReply(currentMessage)" type="success" @click="handleReplyFromView">
                     回复
                 </el-button>
-                <el-button type="primary" @click="handleMarkAsReadFromView" v-if="currentMessage.status === 'UNREAD'">标记为已读</el-button>
+                <el-button
+                    v-if="currentMessage.status === 'UNREAD'"
+                    type="primary"
+                    @click="handleMarkAsReadFromView"
+                >
+                    标记为已读
+                </el-button>
             </template>
         </el-dialog>
 
-        <!-- 发送私信弹窗 -->
         <el-dialog
             v-model="sendMessageDialogVisible"
             :title="isBroadcast ? '发送通知广播' : '主动私信'"
             width="600px"
         >
             <el-form :model="messageForm" label-width="100px">
-                <el-form-item label="接收用户" v-if="!isBroadcast">
+                <el-form-item v-if="!isBroadcast" label="接收用户">
                     <el-select
                         v-model="messageForm.userId"
                         placeholder="请选择接收用户"
@@ -183,12 +213,12 @@
                         <el-option
                             v-for="user in userList"
                             :key="user.id"
-                            :label="user.realName + ' (' + user.username + ')'"
+                            :label="`${user.realName} (${user.username})`"
                             :value="user.id"
                         />
                     </el-select>
                 </el-form-item>
-                <el-form-item label="广播范围" v-else>
+                <el-form-item v-else label="广播范围">
                     <el-select v-model="messageForm.targetRole" style="width: 100%">
                         <el-option label="所有人" value="ALL" />
                         <el-option label="学生" value="STUDENT" />
@@ -209,11 +239,11 @@
                 </el-form-item>
                 <el-form-item label="消息分类">
                     <el-select v-model="messageForm.category" style="width: 100%">
-                        <el-option 
-                            v-for="cat in availableCategories" 
-                            :key="cat.value" 
-                            :label="cat.label" 
-                            :value="cat.value" 
+                        <el-option
+                            v-for="cat in availableCategories"
+                            :key="cat.value"
+                            :label="cat.label"
+                            :value="cat.value"
                         />
                     </el-select>
                 </el-form-item>
@@ -227,9 +257,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, ChatDotRound, Bell } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, Refresh } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
 import Pagination from '@/components/Pagination.vue'
 
@@ -243,15 +273,11 @@ const sending = ref(false)
 const unreadCount = ref(0)
 const userList = ref([])
 const isBroadcast = ref(false)
-
-// 当前登录用户信息
 const currentUser = ref(null)
-
-// 选中的用户（用于从其他页面触发）
 const selectedUserId = ref(null)
 const selectedUserName = ref('')
-
 const messageList = ref([])
+
 const pagination = reactive({
     page: 1,
     size: 10,
@@ -278,72 +304,48 @@ const messageForm = reactive({
     category: 'REPLY'
 })
 
-// 所有用户都可以发送私信
-const canSendPrivateMessage = ref(true)
-
-// 根据角色获取可用的消息分类
 const availableCategories = computed(() => {
     const role = currentUser.value?.role
-    const categories = []
-    
-    // 所有用户都可以主动发送回复消息（私信）
-    categories.push({ value: 'REPLY', label: '回复消息' })
-    
-    // 辅导员、宿管、超管可以发送提醒
+    const categories = [{ value: 'REPLY', label: '回复消息' }]
+
     if (role === 'COUNSELOR' || role === 'DORM_ADMIN' || role === 'SUPER_ADMIN') {
         categories.push({ value: 'REMINDER', label: '提醒消息' })
     }
-    
-    // 只有超管可以发送系统通知
+
     if (role === 'SUPER_ADMIN') {
         categories.push({ value: 'SYSTEM', label: '系统通知' })
     }
-    
+
     return categories
 })
 
-// 判断是否可以回复消息（只要有发送人就可以回复）
-const canReply = (message) => {
-    return message.senderId !== null && message.senderId !== undefined
-}
+const canReply = (message) => message.senderId !== null && message.senderId !== undefined
 
-const getTypeType = (type) => {
-    const typeMap = {
-        'ATTENDANCE': 'warning',
-        'REPAIR': 'info',
-        'LEAVE': 'success',
-        'SYSTEM': 'danger'
-    }
-    return typeMap[type] || 'info'
-}
+const getTypeType = (type) => ({
+    ATTENDANCE: 'warning',
+    REPAIR: 'info',
+    LEAVE: 'success',
+    SYSTEM: 'danger'
+}[type] || 'info')
 
-const getTypeText = (type) => {
-    const textMap = {
-        'ATTENDANCE': '查寝',
-        'REPAIR': '报修',
-        'LEAVE': '请假',
-        'SYSTEM': '系统'
-    }
-    return textMap[type] || type
-}
+const getTypeText = (type) => ({
+    ATTENDANCE: '查寝',
+    REPAIR: '报修',
+    LEAVE: '请假',
+    SYSTEM: '系统'
+}[type] || type)
 
-const getCategoryType = (category) => {
-    const categoryMap = {
-        'SYSTEM': 'info',
-        'REPLY': 'success',
-        'REMINDER': 'warning'
-    }
-    return categoryMap[category] || 'info'
-}
+const getCategoryType = (category) => ({
+    SYSTEM: 'info',
+    REPLY: 'success',
+    REMINDER: 'warning'
+}[category] || 'info')
 
-const getCategoryText = (category) => {
-    const textMap = {
-        'SYSTEM': '系统通知',
-        'REPLY': '回复消息',
-        'REMINDER': '提醒消息'
-    }
-    return textMap[category] || category
-}
+const getCategoryText = (category) => ({
+    SYSTEM: '系统通知',
+    REPLY: '回复消息',
+    REMINDER: '提醒消息'
+}[category] || category)
 
 const loadMessageList = async () => {
     loading.value = true
@@ -359,9 +361,7 @@ const loadMessageList = async () => {
         })
         messageList.value = res.data.list
         pagination.total = res.data.total
-        
-        // 更新未读数量
-        updateUnreadCount()
+        await updateUnreadCount()
     } catch (error) {
         console.error('加载消息列表失败:', error)
     } finally {
@@ -380,7 +380,6 @@ const updateUnreadCount = async () => {
 
 const handleRefresh = () => {
     loadMessageList()
-    // 触发父组件的未读消息数量更新
     window.dispatchEvent(new CustomEvent('update-unread-count'))
 }
 
@@ -420,12 +419,12 @@ const handleMarkAllAsRead = async () => {
         loadMessageList()
         window.dispatchEvent(new CustomEvent('update-unread-count'))
     } catch (error) {
-        console.error('标记失败:', error)
+        console.error('全部标记已读失败:', error)
     }
 }
 
 const handleDelete = (row) => {
-    ElMessageBox.confirm('确定要删除该消息吗？', '警告', {
+    ElMessageBox.confirm('确定要删除这条消息吗？', '警告', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
@@ -442,7 +441,6 @@ const handleDelete = (row) => {
 }
 
 const handleSendPrivateMessage = () => {
-    // 重置表单
     messageForm.userId = null
     messageForm.targetRole = 'ALL'
     messageForm.title = ''
@@ -451,12 +449,10 @@ const handleSendPrivateMessage = () => {
     selectedUserId.value = null
     selectedUserName.value = ''
     isBroadcast.value = false
-    // 加载用户列表
     loadUserList()
     sendMessageDialogVisible.value = true
 }
 
-// 发送广播（超管专用）
 const handleSendBroadcast = () => {
     messageForm.targetRole = 'ALL'
     messageForm.title = ''
@@ -466,10 +462,9 @@ const handleSendBroadcast = () => {
     sendMessageDialogVisible.value = true
 }
 
-// 回复消息
 const handleReply = (row) => {
     messageForm.userId = row.senderId
-    messageForm.title = 'Re: ' + row.title
+    messageForm.title = `Re: ${row.title}`
     messageForm.content = ''
     messageForm.category = 'REPLY'
     isBroadcast.value = false
@@ -477,7 +472,6 @@ const handleReply = (row) => {
     sendMessageDialogVisible.value = true
 }
 
-// 从查看窗口回复
 const handleReplyFromView = () => {
     handleReply(currentMessage)
 }
@@ -495,7 +489,6 @@ const loadUserList = async () => {
 }
 
 const handleConfirmSendMessage = async () => {
-    // 验证
     if (!isBroadcast.value && !messageForm.userId) {
         ElMessage.warning('请选择接收用户')
         return
@@ -504,11 +497,10 @@ const handleConfirmSendMessage = async () => {
         ElMessage.warning('请填写消息标题和内容')
         return
     }
-    
+
     sending.value = true
     try {
         if (isBroadcast.value) {
-            // 发送广播通知
             await axios.post('/api/message/broadcast', {
                 targetRole: messageForm.targetRole,
                 title: messageForm.title,
@@ -517,7 +509,6 @@ const handleConfirmSendMessage = async () => {
             })
             ElMessage.success('广播发送成功')
         } else {
-            // 发送私信
             await axios.post('/api/message/send', {
                 userId: messageForm.userId,
                 title: messageForm.title,
@@ -532,21 +523,15 @@ const handleConfirmSendMessage = async () => {
         window.dispatchEvent(new CustomEvent('update-unread-count'))
     } catch (error) {
         console.error('发送失败:', error)
-        ElMessage.error('发送失败：' + (error.response?.data?.message || '未知错误'))
+        ElMessage.error(`发送失败：${error.response?.data?.message || '未知错误'}`)
     } finally {
         sending.value = false
     }
 }
 
-const handleSizeChange = () => {
-    loadMessageList()
-}
+const handleSizeChange = () => loadMessageList()
+const handlePageChange = () => loadMessageList()
 
-const handlePageChange = () => {
-    loadMessageList()
-}
-
-// 监听发送私信事件（从其他页面触发）
 window.addEventListener('send-private-message', (event) => {
     if (event.detail) {
         selectedUserId.value = event.detail.userId
@@ -556,14 +541,13 @@ window.addEventListener('send-private-message', (event) => {
 })
 
 onMounted(async () => {
-    // 获取当前用户信息
     try {
         const res = await axios.get('/api/user/current')
         currentUser.value = res.data
     } catch (error) {
         console.error('获取当前用户信息失败:', error)
     }
-    
+
     loadMessageList()
     updateUnreadCount()
 })
@@ -578,10 +562,40 @@ onMounted(async () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.header-actions :deep(.el-button) {
+    margin-left: 0;
 }
 
 .search-form {
     margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 0;
+}
+
+.search-form :deep(.el-form-item) {
+    margin-right: 16px;
+    margin-bottom: 12px;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.action-buttons :deep(.el-button) {
+    margin-left: 0;
 }
 
 .content-label {
@@ -591,5 +605,15 @@ onMounted(async () => {
 .message-content {
     white-space: pre-wrap;
     line-height: 1.6;
+}
+
+.muted-text {
+    color: #999;
+}
+
+@media (max-width: 1200px) {
+    .search-form :deep(.el-form-item) {
+        margin-right: 12px;
+    }
 }
 </style>
