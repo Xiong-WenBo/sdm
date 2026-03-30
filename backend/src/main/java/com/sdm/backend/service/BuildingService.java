@@ -65,4 +65,12 @@ public class BuildingService {
     public Building findByAdminUserId(Long adminUserId) {
         return buildingMapper.findByAdminId(adminUserId);
     }
+
+    public List<Building> findAccessibleBuildings(String role, Long userId) {
+        if ("DORM_ADMIN".equals(role)) {
+            Building building = findByAdminUserId(userId);
+            return building == null ? List.of() : List.of(building);
+        }
+        return findAll();
+    }
 }
