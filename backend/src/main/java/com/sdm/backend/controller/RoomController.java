@@ -1,6 +1,7 @@
 package com.sdm.backend.controller;
 
 import com.sdm.backend.annotation.Log;
+import com.sdm.backend.dto.BulkCreateRoomsRequest;
 import com.sdm.backend.dto.Result;
 import com.sdm.backend.entity.Building;
 import com.sdm.backend.entity.Room;
@@ -132,6 +133,38 @@ public class RoomController {
 
         roomService.insert(room);
         return ResponseEntity.ok(Result.success(null, "Room created successfully"));
+    }
+
+    @PostMapping("/bulk")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('DORM_ADMIN')")
+    @Log(module = "ROOM", operation = "CREATE", description = "Bulk create rooms")
+    public ResponseEntity<Result<Void>> bulkCreateRooms(@RequestBody BulkCreateRoomsRequest request) {
+        User currentUser = getCurrentUser();
+
+        if (currentUser != null && "DORM_ADMIN".equals(currentUser.getRole())) {
+            Long dormAdminBuildingId = getDormAdminBuildingId(currentUser);
+            if (dormAdminBuildingId == null) {
+                return ResponseEntity.ok(Result.error(403, "Dorm admin has no assigned building"));
+            }
+            if (request.getBuildingId() != null && !request.getBuildingId().equals(dormAdminBuildingId)) {
+                return ResponseEntity.ok(Result.error(403, "Dorm admin can only create rooms in the assigned building"));
+            }
+            request.setBuildingId(dormAdminBuildingId);
+        }
+
+        try {
+            int created = roomService.bulkCreate(
+                    request.getBuildingId(),
+                    request.getTotalFloors(),
+                    request.getRoomsPerFloor(),
+                    request.getCapacity(),
+                    request.getGender(),
+                    request.getStatus()
+            );
+            return ResponseEntity.ok(Result.success(null, "Bulk created " + created + " rooms successfully"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.ok(Result.error(400, ex.getMessage()));
+        }
     }
 
     @PutMapping("/{id}")
