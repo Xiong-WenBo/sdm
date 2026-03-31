@@ -45,8 +45,16 @@
                                 <el-tag :type="getRoleType(row.role)">{{ getRoleName(row.role) }}</el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column prop="ipAddress" label="IP地址" width="140" />
-                        <el-table-column prop="loginTime" label="登录时间" width="180" />
+                        <el-table-column prop="ipAddress" label="IP地址" width="140">
+                            <template #default="{ row }">
+                                {{ formatIpAddress(row.ipAddress) }}
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="loginTime" label="登录时间" width="180">
+                            <template #default="{ row }">
+                                {{ formatDateTime(row.loginTime) }}
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="status" label="状态" width="100">
                             <template #default="{ row }">
                                 <el-tag :type="row.status === 'SUCCESS' ? 'success' : 'danger'">
@@ -144,8 +152,16 @@
                         <el-table-column prop="description" label="描述" min-width="150" show-overflow-tooltip />
                         <el-table-column prop="requestMethod" label="方法" width="80" />
                         <el-table-column prop="requestUrl" label="URL" min-width="150" show-overflow-tooltip />
-                        <el-table-column prop="ipAddress" label="IP地址" width="120" />
-                        <el-table-column prop="operationTime" label="操作时间" width="160" />
+                        <el-table-column prop="ipAddress" label="IP地址" width="120">
+                            <template #default="{ row }">
+                                {{ formatIpAddress(row.ipAddress) }}
+                            </template>
+                        </el-table-column>
+                        <el-table-column prop="operationTime" label="操作时间" width="160">
+                            <template #default="{ row }">
+                                {{ formatDateTime(row.operationTime) }}
+                            </template>
+                        </el-table-column>
                         <el-table-column prop="executionTime" label="耗时(ms)" width="100" />
                         <el-table-column prop="status" label="状态" width="80">
                             <template #default="{ row }">
@@ -250,6 +266,19 @@ const getOperationText = (operation) => {
         'IMPORT': '导入'
     }
     return operationMap[operation] || operation
+}
+
+const formatDateTime = (value) => {
+    if (!value) return '-'
+    return String(value).replace('T', ' ')
+}
+
+const formatIpAddress = (value) => {
+    if (!value) return '-'
+    if (value === '0:0:0:0:0:0:0:1' || value === '::1') {
+        return '127.0.0.1'
+    }
+    return value
 }
 
 const loadLoginLogList = async () => {

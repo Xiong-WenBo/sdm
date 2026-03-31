@@ -56,7 +56,11 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="createdAt" label="报修时间" width="180" />
+                <el-table-column prop="createdAt" label="报修时间" width="180">
+                    <template #default="{ row }">
+                        {{ formatDateTime(row.createdAt) }}
+                    </template>
+                </el-table-column>
                 <el-table-column label="操作" fixed="right" width="200">
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
@@ -143,7 +147,7 @@
                         {{ getStatusText(currentRepair.status) }}
                     </el-tag>
                 </el-descriptions-item>
-                <el-descriptions-item label="报修时间">{{ currentRepair.createdAt }}</el-descriptions-item>
+                <el-descriptions-item label="报修时间">{{ formatDateTime(currentRepair.createdAt) }}</el-descriptions-item>
                 <el-descriptions-item label="楼栋">{{ currentRepair.buildingName }}</el-descriptions-item>
                 <el-descriptions-item label="房间号">{{ currentRepair.roomNumber }}</el-descriptions-item>
                 <el-descriptions-item label="处理人" :span="2">{{ currentRepair.adminName || '未分配' }}</el-descriptions-item>
@@ -151,7 +155,7 @@
                     {{ currentRepair.handleNote || '无' }}
                 </el-descriptions-item>
                 <el-descriptions-item label="处理时间" :span="2">
-                    {{ currentRepair.handleTime || '-' }}
+                    {{ formatDateTime(currentRepair.handleTime) || '-' }}
                 </el-descriptions-item>
                 <el-descriptions-item label="问题描述" :span="2">
                     <div class="description-content">{{ currentRepair.description }}</div>
@@ -335,6 +339,11 @@ const getStatusText = (status) => {
         'REJECTED': '已拒绝'
     }
     return textMap[status] || status
+}
+
+const formatDateTime = (value) => {
+    if (!value) return ''
+    return String(value).replace('T', ' ')
 }
 
 const canHandleRepair = (row) => {

@@ -80,6 +80,9 @@ public class AuthController {
         if (ip != null && ip.contains(",")) {
             ip = ip.split(",")[0].trim();
         }
+        if ("0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip)) {
+            ip = "127.0.0.1";
+        }
         return ip;
     }
 

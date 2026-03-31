@@ -56,7 +56,11 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="createdAt" label="创建时间" width="180" />
+                <el-table-column prop="createdAt" label="创建时间" width="180">
+                    <template #default="{ row }">
+                        {{ formatDateTime(row.createdAt) }}
+                    </template>
+                </el-table-column>
                 <el-table-column label="操作" fixed="right" width="200">
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
@@ -255,6 +259,11 @@ const getRoleType = (role) => {
         [Role.STUDENT]: 'info'
     }
     return typeMap[role] || 'info'
+}
+
+const formatDateTime = (value) => {
+    if (!value) return '-'
+    return String(value).replace('T', ' ')
 }
 
 const loadUserList = async () => {

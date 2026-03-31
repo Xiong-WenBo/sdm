@@ -54,7 +54,11 @@
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="createdAt" label="申请时间" width="180" />
+                <el-table-column prop="createdAt" label="申请时间" width="180">
+                    <template #default="{ row }">
+                        {{ formatDateTime(row.createdAt) }}
+                    </template>
+                </el-table-column>
                 <el-table-column label="操作" fixed="right" width="200">
                     <template #default="{ row }">
                         <el-button type="primary" size="small" @click="handleView(row)">查看</el-button>
@@ -144,7 +148,7 @@
                 </el-descriptions-item>
                 <el-descriptions-item label="开始时间">{{ formatDateTime(currentLeave.startTime) }}</el-descriptions-item>
                 <el-descriptions-item label="结束时间">{{ formatDateTime(currentLeave.endTime) }}</el-descriptions-item>
-                <el-descriptions-item label="申请时间">{{ currentLeave.createdAt }}</el-descriptions-item>
+                <el-descriptions-item label="申请时间">{{ formatDateTime(currentLeave.createdAt) }}</el-descriptions-item>
                 <el-descriptions-item label="审批人" :span="2">{{ currentLeave.approverName || '待审批' }}</el-descriptions-item>
                 <el-descriptions-item label="审批意见" :span="2">
                     {{ currentLeave.approveNote || '无' }}
@@ -309,14 +313,7 @@ const getStatusText = (status) => {
 
 const formatDateTime = (dateTime) => {
     if (!dateTime) return ''
-    const date = new Date(dateTime)
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-    })
+    return String(dateTime).replace('T', ' ')
 }
 
 const canApproveLeave = (row) => {
