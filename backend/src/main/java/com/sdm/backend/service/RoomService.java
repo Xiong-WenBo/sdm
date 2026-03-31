@@ -113,16 +113,16 @@ public class RoomService {
     @Transactional
     public int bulkCreate(Long buildingId, Integer totalFloors, Integer roomsPerFloor, Integer capacity, String gender, String status) {
         if (buildingId == null) {
-            throw new IllegalArgumentException("Building is required");
+            throw new IllegalArgumentException("请选择楼栋");
         }
         if (totalFloors == null || totalFloors < 1) {
-            throw new IllegalArgumentException("Total floors must be greater than 0");
+            throw new IllegalArgumentException("总楼层必须大于 0");
         }
         if (roomsPerFloor == null || roomsPerFloor < 1) {
-            throw new IllegalArgumentException("Rooms per floor must be greater than 0");
+            throw new IllegalArgumentException("每层房间数量必须大于 0");
         }
         if (capacity == null || capacity < 1) {
-            throw new IllegalArgumentException("Capacity must be greater than 0");
+            throw new IllegalArgumentException("房间容量必须大于 0");
         }
 
         List<Room> existingRooms = roomMapper.findByBuildingId(buildingId);
@@ -138,7 +138,7 @@ public class RoomService {
             for (int index = 1; index <= roomsPerFloor; index++) {
                 String roomNumber = floor + String.format("%0" + roomNumberWidth + "d", index);
                 if (!generatedRoomNumbers.add(roomNumber) || existingRoomNumbers.contains(roomNumber)) {
-                    throw new IllegalArgumentException("Room number already exists: " + roomNumber);
+                    throw new IllegalArgumentException("房间号已存在：" + roomNumber);
                 }
             }
         }

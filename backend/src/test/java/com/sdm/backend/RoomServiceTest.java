@@ -74,6 +74,6 @@ class RoomServiceTest {
                 () -> roomService.bulkCreate(1L, 1, 2, 4, "UNISEX", "AVAILABLE")
         );
 
-        assertEquals("Room number already exists: 101", exception.getMessage());
+        assertEquals("房间号已存在：101", exception.getMessage());
     }
 }

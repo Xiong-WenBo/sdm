@@ -148,7 +148,7 @@ public class AssignmentService {
     @Transactional
     public Map<String, Object> bulkAutoAssign(Long buildingId, LocalDate checkInDate, Long createdBy) {
         if (buildingId == null) {
-            throw new IllegalArgumentException("Building is required");
+            throw new IllegalArgumentException("请选择楼栋");
         }
 
         List<Student> candidates = studentService.findUnassignedForDormAssignment();

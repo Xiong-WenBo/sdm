@@ -54,7 +54,7 @@ public class StudentService {
                 .toList();
 
         if (availableCounselors.isEmpty()) {
-            throw new IllegalArgumentException("No active counselors available for assignment");
+            throw new IllegalArgumentException("没有可用的辅导员，请先检查辅导员账号状态");
         }
 
         List<Student> allStudents = studentMapper.findAll().stream()
@@ -98,7 +98,7 @@ public class StudentService {
                     .min(Comparator
                             .comparing((Long counselorId) -> counselorLoads.getOrDefault(counselorId, 0))
                             .thenComparing(Long::longValue))
-                    .orElseThrow(() -> new IllegalArgumentException("No counselor available"));
+                    .orElseThrow(() -> new IllegalArgumentException("当前没有可用的辅导员"));
 
             for (Student student : group) {
                 studentMapper.updateCounselorById(student.getId(), selectedCounselorId);
